@@ -1,0 +1,16 @@
+# Python virtual environments
+.venv/
+__pycache__/
+*.pyc
+
+# Sensitive config files (contain credentials)
+camera-toggle/config.py
+door-lock-toggle/config.py
+hardware-monitor/config.py
+admin-portal/config.py
+
+# Logs
+*.log
+
+# OS files
+.DS_Store

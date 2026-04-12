@@ -1,0 +1,15 @@
+[Unit]
+Description=UniFi Hardware Monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lherzog
+WorkingDirectory=/opt/unifi-monitor
+ExecStart=/opt/unifi-monitor/.venv/bin/python3 app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
