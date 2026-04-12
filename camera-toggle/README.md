@@ -1,4 +1,4 @@
-# UniFi Protect Camera Toggle
+# UniFi Protect Camera Privacy Toggle
 
 A lightweight admin tool for selectively disabling/enabling UniFi Protect cameras via the local API — designed for scenarios like temporarily converting offices to changing rooms.
 
@@ -6,76 +6,97 @@ A lightweight admin tool for selectively disabling/enabling UniFi Protect camera
 
 | File | Purpose |
 |---|---|
-| `app.py` | Flask web UI — toggle individual cameras on/off |
-| `ensure_all_on.py` | Cron safety net — re-enables every camera |
-| `protect_api.py` | Shared UniFi Protect API client |
-| `config.py` | Connection settings (edit this first) |
+| `app.py` | Flask web UI — toggle individual cameras on/off with group-based URL routing |
+| `ensure_all_on.py` | Cron safety net — re-enables every camera across all groups |
+| `protect_api.py` | Shared UniFi Protect API client with group filtering |
+| `config.py` | Connection settings, camera groups, default recording mode |
 | `requirements.txt` | Python dependencies |
 
 ## Quick Start
 
 ```bash
-# 1. Clone / copy files to your server
-# 2. Install dependencies
+cd /opt/unifi-camera-toggle
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-
-# 3. Edit config.py with your controller details
-nano config.py
-
-# 4. Run the web UI
-python app.py
-# → http://your-server:5000
+nano config.py          # Fill in controller credentials and camera groups
+python app.py           # → http://your-server:5000
 ```
 
 ## Configuration
 
-Edit `config.py`:
+Copy `config.example.py` to `config.py` and edit:
 
 ```python
-PROTECT_HOST = "192.168.1.1"       # Your UDM Pro / UNVR / Cloud Key IP
-PROTECT_USERNAME = "local-admin"    # Local admin account (NOT Ubiquiti SSO)
+PROTECT_HOST = "protect.se-test.org"
+PROTECT_USERNAME = "local-admin"
 PROTECT_PASSWORD = "your-password"
-VERIFY_SSL = False                  # Self-signed cert on most controllers
+VERIFY_SSL = False
+API_BASE = "/proxy/protect/api"
 ```
 
 > **Important:** You need a **local** admin account on the controller.
 > Ubiquiti SSO / cloud accounts won't work with the local API.
-> Create one under OS Settings → Admins → Add Admin → Local.
+
+## Camera Groups
+
+Groups let different administrators see different camera sets via URL paths:
+
+```python
+CAMERA_GROUPS = {
+    "default": ["Office A", "Office B", "Conference Room"],
+    "bob": ["Office A", "Office B"],
+    "alice": ["Conference Room"],
+}
+```
+
+- `http://<ip>:5000/` → shows the "default" group
+- `http://<ip>:5000/bob` → shows only Bob's cameras
+- `http://<ip>:5000/alice` → shows only Alice's cameras
+
+Groups filter the view only — the toggle API works on any camera regardless
+of group. An empty list shows all cameras. Non-default groups display a blue
+badge on the page title.
 
 ## How "Off" Works
 
 When you toggle a camera **off**, the tool sets its recording mode to `never`
-and enables a full-frame privacy zone (blacking out the live view). This means:
+and enables a full-frame privacy zone (blacking out the live view):
 
 - No footage is recorded
 - Live view shows a black/privacy screen
-- The camera hardware stays powered (no physical reboot needed to restore)
+- The camera hardware stays powered (instant restoration, no reboot)
 
 Toggling **on** restores the original recording mode and removes the privacy zone.
 
 ## Cron Safety Net
 
-The `ensure_all_on.py` script re-enables all cameras. Schedule it as a nightly
-catch-all so nothing stays off accidentally:
+The `ensure_all_on.py` script re-enables all cameras across all groups:
 
 ```bash
 # Run every night at 11 PM
-0 23 * * * /usr/bin/python3 /path/to/unifi-camera-toggle/ensure_all_on.py >> /var/log/camera-ensure.log 2>&1
+0 23 * * * /opt/unifi-camera-toggle/.venv/bin/python3 /opt/unifi-camera-toggle/ensure_all_on.py >> /var/log/camera-ensure.log 2>&1
 ```
 
-## API Compatibility
+Supports `--dry-run` to preview without changes.
 
-Tested against UniFi Protect on:
-- UDM Pro / UDM SE (API path: `/proxy/protect/api/`)
-- UNVR / Cloud Key Gen2+ (API path: `/api/` — toggle `API_BASE` in config if needed)
+## Admin Portal Integration
 
-The tool auto-detects the API base path, but you can override it in `config.py`
-if auto-detection doesn't work for your setup.
+This service is also accessible via the unified Admin Portal on port 8080
+(Cameras tab), which shows all cameras unfiltered. The `/api/list` endpoint
+provides JSON data for portal integration.
 
 ## Security Notes
 
-- Run this on your **management VLAN only** — do not expose to the internet.
-- The Flask dev server is fine for light internal use; for anything heavier,
-  put it behind Gunicorn + nginx with HTTPS.
-- Credentials are stored in `config.py` — protect file permissions accordingly
-  (`chmod 600 config.py`).
+- Run on the **management VLAN only** — do not expose to the internet.
+- Credentials are in `config.py` — protect with `chmod 600`.
+- The Flask dev server is fine for light internal use; for heavier loads,
+  use Gunicorn + nginx with HTTPS.
+
+## Systemd Service
+
+```bash
+sudo systemctl status camera-toggle
+sudo systemctl restart camera-toggle
+sudo journalctl -u camera-toggle --since today
+```

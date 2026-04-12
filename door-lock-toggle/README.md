@@ -1,6 +1,6 @@
 # UniFi Access Door Lock Toggle
 
-A lightweight admin tool for selectively unlocking/locking UniFi Access doors via the developer API — designed for scenarios like temporarily propping doors open during events or maintenance, with an automated nightly safety net to ensure all doors are locked.
+A lightweight admin tool for selectively unlocking/locking UniFi Access doors via the developer API — designed for scenarios like temporarily propping doors open during events or maintenance, with an automated nightly safety net.
 
 ## Components
 
@@ -9,69 +9,85 @@ A lightweight admin tool for selectively unlocking/locking UniFi Access doors vi
 | `app.py` | Flask web UI — toggle individual doors locked/unlocked |
 | `ensure_all_locked.py` | Cron safety net — re-locks every managed door |
 | `access_api.py` | Shared UniFi Access developer API client |
-| `config.py` | Connection settings (edit this first) |
+| `config.py` | Connection settings, door inclusion list, retry parameters |
 | `requirements.txt` | Python dependencies |
 
 ## Quick Start
 
 ```bash
-# 1. Clone / copy files to your server
-# 2. Install dependencies
 cd /opt/unifi-access
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-
-# 3. Edit config.py with your controller details
-nano config.py
-
-# 4. Run the web UI
-python app.py
-# → http://your-server:5001
+nano config.py          # Fill in controller details and API token
+python app.py           # → http://your-server:5001
 ```
 
 ## Configuration
 
-Edit `config.py`:
+Copy `config.example.py` to `config.py` and edit:
 
 ```python
-ACCESS_HOST = "protect.se-test.org"   # Your UNVR / UDM IP or hostname
-ACCESS_PORT = 12445                    # UniFi Access API port
-API_TOKEN = "your-bearer-token-here"   # Developer API token from Access settings
-VERIFY_SSL = False                     # Self-signed cert on most controllers
+ACCESS_HOST = "protect.se-test.org"
+ACCESS_PORT = 12445
+API_TOKEN = "your-bearer-token-here"
+VERIFY_SSL = False
 ```
 
 > **Generating an API token:** In the UniFi Access application, navigate to
-> Settings → System → scroll to "API Token" and generate one.
+> Settings → System → API Token and generate one.
 
-## How Unlock Works
+## Door Inclusion List
 
-When you toggle a door to **unlocked**, the tool sets the lock rule to
-`keep_open`, which holds the door in an unlocked state until explicitly
-changed. The door will remain unlocked indefinitely (no timeout).
+Only doors in the inclusion list appear in the dashboard:
 
-Toggling back to **locked** sends a `lock_now` command, immediately
-re-engaging the lock and returning to the door's normal access policy.
+```python
+INCLUDED_DOORS = [
+    "Door Access Hub",
+]
+```
+
+Empty list = show all doors. Names are case-insensitive.
+
+## How Lock/Unlock Works
+
+- **Unlock:** Sets the lock rule to `keep_unlock`, holding the door open
+  until explicitly changed.
+- **Lock:** Sends `lock_now`, immediately re-engaging the lock and returning
+  to the door's normal access policy.
+
+The API reports status via `door_lock_relay_status`: `"unlock"` when open,
+`"lock"` when locked.
 
 ## Cron Safety Net
 
-The `ensure_all_locked.py` script re-locks all managed doors. Schedule it
-as a nightly catch-all:
-
 ```bash
-# Run every night at 11 PM
-0 23 * * * /opt/unifi-access/.venv/bin/python3 /opt/unifi-access/ensure_all_locked.py >> /var/log/unifi-access-ensure.log 2>&1
+# Run every evening at 7 PM
+0 19 * * * /opt/unifi-access/.venv/bin/python3 /opt/unifi-access/ensure_all_locked.py >> /var/log/unifi-access-ensure.log 2>&1
 ```
+
+Supports `--dry-run` to preview without changes.
+
+## Admin Portal Integration
+
+This service is also accessible via the unified Admin Portal on port 8080
+(Doors tab). The `/api/list` endpoint provides JSON data for portal integration.
 
 ## API Compatibility
 
-Uses the official UniFi Access Developer API (port 12445) with Bearer
-token authentication. This is a documented, supported API — more stable
-than the undocumented Protect API.
+Uses the official UniFi Access Developer API (port 12445) with Bearer token
+authentication. This is a documented, supported API.
 
 ## Security Notes
 
-- Run this on your **management VLAN only** — do not expose to the internet.
-- The API token has full door control permissions — protect `config.py`
-  accordingly (`chmod 600 config.py`).
+- Run on the **management VLAN only**.
+- The API token grants full door control — protect `config.py` with `chmod 600`.
 - For production hardening, place Flask behind Gunicorn + nginx with HTTPS.
+
+## Systemd Service
+
+```bash
+sudo systemctl status door-lock-toggle
+sudo systemctl restart door-lock-toggle
+sudo journalctl -u door-lock-toggle --since today
+```
