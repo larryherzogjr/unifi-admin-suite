@@ -764,7 +764,7 @@ def _fetch_door_list():
 
 
 def _fetch_monitor_list():
-    """Get device list from the monitor backend."""
+    """Get device list from the monitor backend and normalize fields."""
     try:
         r = requests.get(
             f"{config.MONITOR_BACKEND}/api/list",
@@ -772,7 +772,22 @@ def _fetch_monitor_list():
         )
         if r.status_code == 200:
             data = r.json()
-            return data.get("devices", data.get("monitors", []))
+            devices = data.get("devices", data.get("monitors", []))
+            # Normalize the 'online' field — the monitor backend may use
+            # different field names depending on the collector
+            for dev in devices:
+                if "online" not in dev:
+                    # Check common alternatives
+                    if "status" in dev:
+                        dev["online"] = dev["status"] in ("online", "CONNECTED", "connected", True)
+                    elif "isOnline" in dev:
+                        dev["online"] = bool(dev["isOnline"])
+                    elif "state" in dev:
+                        dev["online"] = dev["state"] in ("CONNECTED", "online", "up")
+                    else:
+                        # If we got data at all, assume online
+                        dev["online"] = True
+            return devices
     except Exception:
         pass
     return None
