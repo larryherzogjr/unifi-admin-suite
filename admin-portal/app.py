@@ -264,6 +264,20 @@ PAGE_TEMPLATE = r"""
   .badge.locked       { background: rgba(34,197,94,.15);  color: var(--success); }
   .badge.unlocked     { background: rgba(245,158,11,.15); color: var(--warn); }
 
+  /* ── Advanced / Timed Unlock ── */
+  .advanced-row{display:none;align-items:center;gap:.6rem;margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--border);flex-wrap:wrap}
+  .advanced-row.show{display:flex}
+  .adv-label{font-size:.72rem;color:var(--muted)}.adv-checkbox{cursor:pointer;accent-color:var(--accent)}
+  .time-select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;font-size:.78rem}
+  .time-select:focus{border-color:var(--accent);outline:none}
+  .btn-timed{padding:.25rem .7rem;font-size:.75rem;border:1px solid var(--accent);border-radius:5px;background:rgba(59,130,246,.1);color:var(--accent);cursor:pointer;transition:background .15s}
+  .btn-timed:hover{background:rgba(59,130,246,.2)}
+  .timer-display{display:none;align-items:center;gap:.5rem;margin-top:.6rem;padding:.45rem .7rem;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:6px}
+  .timer-display.show{display:flex}.timer-icon{font-size:.9rem}.timer-text{font-size:.75rem;color:var(--accent)}
+  .timer-countdown{font-size:.8rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
+  .btn-cancel-timer{margin-left:auto;padding:.2rem .5rem;font-size:.7rem;border:1px solid var(--danger);border-radius:4px;background:transparent;color:var(--danger);cursor:pointer}
+  .btn-cancel-timer:hover{background:rgba(239,68,68,.1)}
+
   /* ── Toast ── */
   .toast {
     position: fixed;
@@ -304,7 +318,7 @@ PAGE_TEMPLATE = r"""
 <body>
 
 <div class="header">
-  <h1><span>Grace Free</span> UniFi Admin Portal</h1>
+  <h1><span>UniFi</span> Admin Portal</h1>
   <div class="header-meta">Physical Security Management</div>
 </div>
 
@@ -325,14 +339,6 @@ PAGE_TEMPLATE = r"""
       <span class="count">{{ doors | length }}</span>
     {% endif %}
   </div>
-  <div class="tab" data-panel="monitor" onclick="switchTab(this)">
-    Monitor
-    {% if monitor_summary.get('offline', 0) > 0 %}
-      <span class="count alert">{{ monitor_summary.offline }} down</span>
-    {% else %}
-      <span class="count">{{ monitor_devices | length }}</span>
-    {% endif %}
-  </div>
 </div>
 
 <div class="content">
@@ -350,6 +356,7 @@ PAGE_TEMPLATE = r"""
           &middot; {{ cam_off_count }} off
         </span>
         <div>
+          <button class="btn success" onclick="enableAllCameras()">Enable All</button>
           <button class="btn" onclick="location.reload()">Refresh</button>
         </div>
       </div>
@@ -397,6 +404,7 @@ PAGE_TEMPLATE = r"""
           &middot; {{ door_unlocked_count }} unlocked
         </span>
         <div>
+          <button class="btn success" onclick="lockAllDoors()">Lock All</button>
           <button class="btn" onclick="location.reload()">Refresh</button>
         </div>
       </div>
@@ -407,7 +415,7 @@ PAGE_TEMPLATE = r"""
             <div class="item-name">{{ door.name }}</div>
             <div class="item-meta">
               {% if door.type %}{{ door.type }} &middot;{% endif %}
-              <span class="badge {{ 'unlocked' if door.isUnlocked else 'locked' }}">
+              <span class="badge {{ 'unlocked' if door.isUnlocked else 'locked' }}" id="door-badge-{{ door.id }}">
                 {{ 'UNLOCKED' if door.isUnlocked else 'LOCKED' }}
               </span>
               &middot; Rule: <strong>{{ door.lockRule }}</strong>
@@ -425,43 +433,19 @@ PAGE_TEMPLATE = r"""
               <span class="slider door-slider"></span>
             </label>
           </div>
-        </div>
-      {% endfor %}
-      </div>
-    {% endif %}
-  </div>
-  <!-- MONITOR PANEL -->
-  <div class="panel" id="panel-monitor">
-    {% if monitor_error %}
-      <div class="error-box">Monitor service unavailable: {{ monitor_error }}</div>
-    {% elif monitor_devices | length == 0 %}
-      <div class="empty-state">No devices found.</div>
-    {% else %}
-      <div class="section-bar">
-        <span class="section-summary">
-          {{ monitor_summary.get('total', 0) }} devices
-          &middot; {{ monitor_summary.get('online', 0) }} online
-          &middot; {{ monitor_summary.get('offline', 0) }} offline
-        </span>
-        <a href="http://{{ request.host.split(':')[0] }}:5002" target="_blank"
-           class="btn" style="text-decoration:none">Full Dashboard</a>
-      </div>
-      <div class="item-list">
-      {% for dev in monitor_devices %}
-        <div class="item-card {{ 'on' if dev.status == 'online' else 'off' }}">
-          <div class="item-info">
-            <div class="item-name">{{ dev.name }}</div>
-            <div class="item-meta">
-              {{ dev.type }}
-              {% if dev.model %}&middot; {{ dev.model }}{% endif %}
-              &middot;
-              <span class="badge {{ 'connected' if dev.status == 'online' else 'disconnected' }}">
-                {{ dev.status | upper }}
-              </span>
-              {% if dev.ip %}&middot; {{ dev.ip }}{% endif %}
-              {% if dev.firmware %}&middot; FW: {{ dev.firmware }}{% endif %}
-              {% if dev.uptime %}&middot; Up: {{ dev.uptime }}{% endif %}
+          <div class="advanced-row {{ 'show' if not door.isUnlocked else '' }}" id="door-adv-{{ door.id }}">
+            <label class="adv-label" style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="checkbox" class="adv-checkbox" id="door-adv-check-{{ door.id }}" onchange="toggleDoorAdvanced('{{ door.id }}')"> Advanced</label>
+            <div id="door-adv-options-{{ door.id }}" style="display:none;align-items:center;gap:.5rem;flex-wrap:wrap">
+              <label class="adv-label">Unlock for:</label>
+              <select class="time-select" id="door-time-{{ door.id }}" onchange="doorTimeChanged(this,'{{ door.id }}')">
+                <option value="5">5 min</option><option value="15" selected>15 min</option><option value="30">30 min</option><option value="60">1 hr</option><option value="120">2 hr</option><option value="custom">Custom...</option></select>
+              <input type="number" id="door-custom-time-{{ door.id }}" min="1" max="480" placeholder="min" style="display:none;width:55px" class="time-select">
+              <button class="btn-timed" onclick="timedUnlockDoor('{{ door.id }}','{{ door.name }}')">&#9201; Timed Unlock</button>
             </div>
+          </div>
+          <div class="timer-display" id="door-timer-{{ door.id }}"><span class="timer-icon">&#9201;</span><span class="timer-text">Auto-locks in</span>
+            <span class="timer-countdown" id="door-countdown-{{ door.id }}">--:--</span>
+            <button class="btn-cancel-timer" onclick="cancelDoorTimer('{{ door.id }}')">Cancel &amp; Lock</button>
           </div>
         </div>
       {% endfor %}
@@ -480,17 +464,7 @@ function switchTab(el) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('panel-' + el.dataset.panel).classList.add('active');
-  history.replaceState(null, '', '#' + el.dataset.panel);
 }
-
-// Restore tab from URL hash on load
-(function() {
-  const hash = location.hash.replace('#', '');
-  if (hash) {
-    const tab = document.querySelector('.tab[data-panel="' + hash + '"]');
-    if (tab) switchTab(tab);
-  }
-})();
 
 /* ── Toast ── */
 function toast(msg, type) {
@@ -518,11 +492,6 @@ async function toggleCamera(el) {
     const isOff = data.camera ? data.camera.isOff : !turnOn;
     label.textContent = isOff ? 'off' : 'on';
     card.className = 'item-card ' + (isOff ? 'off' : 'on');
-    const badge = card.querySelector('.badge');
-    if (badge) {
-      badge.textContent = isOff ? 'OFF' : 'CONNECTED';
-      badge.className = 'badge ' + (isOff ? 'disconnected' : 'connected');
-    }
     toast(name + ' → ' + (isOff ? 'OFF (privacy)' : 'ON'), 'ok');
   } catch (err) {
     el.checked = !turnOn;
@@ -543,10 +512,16 @@ async function enableAllCameras() {
 }
 
 /* ── Door controls ── */
+function toggleDoorAdvanced(id){const c=document.getElementById('door-adv-check-'+id).checked;document.getElementById('door-adv-options-'+id).style.display=c?'flex':'none'}
+function doorTimeChanged(sel,id){document.getElementById('door-custom-time-'+id).style.display=sel.value==='custom'?'inline-block':'none'}
+
 async function toggleDoor(el) {
   const id = el.dataset.id, name = el.dataset.name, shouldLock = el.checked;
   const label = document.getElementById('door-label-' + id);
   const card  = document.getElementById('door-card-' + id);
+  const badge = document.getElementById('door-badge-' + id);
+  const adv = document.getElementById('door-adv-' + id);
+  const tmr = document.getElementById('door-timer-' + id);
   el.disabled = true; label.textContent = '...';
 
   try {
@@ -560,14 +535,11 @@ async function toggleDoor(el) {
     const isUnlocked = !shouldLock;
     label.textContent = isUnlocked ? 'unlocked' : 'locked';
     card.className = 'item-card ' + (isUnlocked ? 'unlocked' : 'locked');
-    const badge = card.querySelector('.badge');
-    if (badge) {
-      badge.textContent = isUnlocked ? 'UNLOCKED' : 'LOCKED';
-      badge.className = 'badge ' + (isUnlocked ? 'unlocked' : 'locked');
-    }
-    const strong = card.querySelector('.item-meta strong');
-    if (strong) strong.textContent = isUnlocked ? 'unlock' : 'lock';
-    toast(name + ' → ' + (isUnlocked ? 'UNLOCKED' : 'LOCKED'), 'ok');
+    badge.textContent = isUnlocked ? 'UNLOCKED' : 'LOCKED';
+    badge.className = 'badge ' + (isUnlocked ? 'unlocked' : 'locked');
+    adv.classList.toggle('show', !isUnlocked);
+    if (shouldLock) tmr.classList.remove('show');
+    toast(name + ' \u2192 ' + (isUnlocked ? 'UNLOCKED' : 'LOCKED'), 'ok');
   } catch (err) {
     el.checked = !shouldLock;
     label.textContent = shouldLock ? 'unlocked' : 'locked';
@@ -575,8 +547,47 @@ async function toggleDoor(el) {
   } finally { el.disabled = false; }
 }
 
+const doorCdi = {};
+function startDoorCountdown(id, sec) {
+  const td = document.getElementById('door-timer-' + id), cd = document.getElementById('door-countdown-' + id);
+  td.classList.add('show');
+  if (doorCdi[id]) clearInterval(doorCdi[id]);
+  let rem = sec;
+  function u() {
+    if (rem <= 0) { clearInterval(doorCdi[id]); td.classList.remove('show'); setTimeout(() => location.reload(), 1000); return; }
+    const h = Math.floor(rem/3600), m = Math.floor((rem%3600)/60), s = rem%60;
+    cd.textContent = h > 0 ? h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0') : m+':'+String(s).padStart(2,'0');
+    rem--;
+  }
+  u(); doorCdi[id] = setInterval(u, 1000);
+}
+
+async function timedUnlockDoor(id, name) {
+  const sel = document.getElementById('door-time-' + id);
+  let min = parseInt(sel.value);
+  if (sel.value === 'custom') { min = parseInt(document.getElementById('door-custom-time-' + id).value); if (!min || min < 1) { toast('Enter valid minutes', 'err'); return; } }
+  try {
+    const r = await fetch('/api/doors/timed-unlock', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({door_id: id, minutes: min}) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
+    const card = document.getElementById('door-card-' + id), label = document.getElementById('door-label-' + id),
+          badge = document.getElementById('door-badge-' + id), toggle = document.getElementById('door-toggle-' + id), adv = document.getElementById('door-adv-' + id);
+    card.className = 'item-card unlocked'; label.textContent = 'unlocked'; badge.textContent = 'UNLOCKED'; badge.className = 'badge unlocked'; toggle.checked = false; adv.classList.remove('show');
+    startDoorCountdown(id, min * 60);
+    toast(name + ' \u2192 UNLOCKED for ' + min + ' min', 'ok');
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
+async function cancelDoorTimer(id) {
+  try {
+    const r = await fetch('/api/doors/cancel-timer', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({door_id: id}) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
+    if (doorCdi[id]) clearInterval(doorCdi[id]); document.getElementById('door-timer-' + id).classList.remove('show');
+    toast(d.name + ' \u2192 timer cancelled, LOCKED', 'ok'); setTimeout(() => location.reload(), 500);
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
 async function lockAllDoors() {
-  if (!confirm('Lock ALL doors?')) return;
+  if (!confirm('Lock ALL doors (and cancel all timers)?')) return;
   try {
     const r = await fetch('/api/doors/lock-all', { method: 'POST' });
     const data = await r.json();
@@ -585,6 +596,10 @@ async function lockAllDoors() {
     setTimeout(() => location.reload(), 800);
   } catch (err) { toast('Error: ' + err.message, 'err'); }
 }
+
+// Load active timers on page load
+(async function(){try{const r=await fetch('/api/doors/timers');const d=await r.json();
+for(const[id,info]of Object.entries(d)){if(info.remaining_sec>0)startDoorCountdown(id,info.remaining_sec)}}catch(e){}})();
 </script>
 </body>
 </html>
@@ -630,16 +645,6 @@ def index():
     else:
         doors = door_data
 
-    monitor_devices = []
-    monitor_summary = {}
-    monitor_error = None
-    mon_data, mon_summary = _fetch_monitor_data()
-    if mon_data is None:
-        monitor_error = "Cannot reach monitor service on port 5002"
-    else:
-        monitor_devices = mon_data
-        monitor_summary = mon_summary
-
     cam_off_count = sum(1 for c in cameras if c.get("isOff"))
     door_unlocked_count = sum(1 for d in doors if d.get("isUnlocked"))
 
@@ -651,9 +656,6 @@ def index():
         doors=doors,
         door_error=door_error,
         door_unlocked_count=door_unlocked_count,
-        monitor_devices=monitor_devices,
-        monitor_error=monitor_error,
-        monitor_summary=monitor_summary,
     )
 
 
@@ -684,20 +686,6 @@ def _fetch_door_list():
         pass
     return None
 
-def _fetch_monitor_data():
-    """Get device list from the monitor backend."""
-    try:
-        r = requests.get(
-            f"{config.MONITOR_BACKEND}/api/list",
-            timeout=BACKEND_TIMEOUT,
-        )
-        if r.status_code == 200:
-            data = r.json()
-            return data.get("devices", []), data.get("summary", {})
-    except Exception:
-        pass
-    return None, None
-
 
 # -------------------------------------------------------------------------
 # Routes — API proxies
@@ -727,6 +715,26 @@ def proxy_door_toggle():
 def proxy_door_lock_all():
     result, status = _proxy_post(config.DOOR_BACKEND, "/api/lock-all", {})
     return jsonify(result), status
+
+
+@app.route("/api/doors/timed-unlock", methods=["POST"])
+def proxy_door_timed_unlock():
+    data = request.get_json(force=True)
+    result, status = _proxy_post(config.DOOR_BACKEND, "/api/timed-unlock", data)
+    return jsonify(result), status
+
+
+@app.route("/api/doors/cancel-timer", methods=["POST"])
+def proxy_door_cancel_timer():
+    data = request.get_json(force=True)
+    result, status = _proxy_post(config.DOOR_BACKEND, "/api/cancel-timer", data)
+    return jsonify(result), status
+
+
+@app.route("/api/doors/timers")
+def proxy_door_timers():
+    data = _proxy_get(config.DOOR_BACKEND, "/api/timers")
+    return jsonify(data or {})
 
 
 # -------------------------------------------------------------------------
