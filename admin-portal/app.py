@@ -1,9 +1,9 @@
 """
-UniFi Admin Portal — unified front-end for Camera Privacy Toggle
-and Door Lock Toggle.
+UniFi Admin Portal — unified front-end for Camera Privacy Toggle,
+Door Lock Toggle, and Hardware Monitor.
 
-Proxies API calls to the two independent backend services running
-on ports 5000 (cameras) and 5001 (doors).
+Proxies API calls to three independent backend services running
+on ports 5000 (cameras), 5001 (doors), and 5002 (monitor).
 
 Run:  python app.py
 Then visit http://your-server:8080
@@ -184,14 +184,16 @@ PAGE_TEMPLATE = r"""
   .item-list { display: flex; flex-direction: column; gap: .5rem; }
 
   .item-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: .85rem 1rem;
     transition: border-color .2s;
+  }
+  .item-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
   .item-card.off      { border-left: 3px solid var(--danger); }
   .item-card.on       { border-left: 3px solid var(--success); }
@@ -339,6 +341,14 @@ PAGE_TEMPLATE = r"""
       <span class="count">{{ doors | length }}</span>
     {% endif %}
   </div>
+  <div class="tab" data-panel="monitor" onclick="switchTab(this)">
+    Monitor
+    {% if mon_offline_count %}
+      <span class="count alert">{{ mon_offline_count }} down</span>
+    {% else %}
+      <span class="count">{{ monitors | length }}</span>
+    {% endif %}
+  </div>
 </div>
 
 <div class="content">
@@ -363,6 +373,7 @@ PAGE_TEMPLATE = r"""
       <div class="item-list">
       {% for cam in cameras %}
         <div class="item-card {{ 'off' if cam.isOff else 'on' }}" id="cam-card-{{ cam.id }}">
+          <div class="item-top">
           <div class="item-info">
             <div class="item-name">{{ cam.name }}</div>
             <div class="item-meta">
@@ -384,6 +395,7 @@ PAGE_TEMPLATE = r"""
                      onchange="toggleCamera(this)">
               <span class="slider cam-slider"></span>
             </label>
+          </div>
           </div>
         </div>
       {% endfor %}
@@ -411,6 +423,7 @@ PAGE_TEMPLATE = r"""
       <div class="item-list">
       {% for door in doors %}
         <div class="item-card {{ 'unlocked' if door.isUnlocked else 'locked' }}" id="door-card-{{ door.id }}">
+          <div class="item-top">
           <div class="item-info">
             <div class="item-name">{{ door.name }}</div>
             <div class="item-meta">
@@ -433,6 +446,7 @@ PAGE_TEMPLATE = r"""
               <span class="slider door-slider"></span>
             </label>
           </div>
+          </div>
           <div class="advanced-row {{ 'show' if not door.isUnlocked else '' }}" id="door-adv-{{ door.id }}">
             <label class="adv-label" style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="checkbox" class="adv-checkbox" id="door-adv-check-{{ door.id }}" onchange="toggleDoorAdvanced('{{ door.id }}')"> Advanced</label>
             <div id="door-adv-options-{{ door.id }}" style="display:none;align-items:center;gap:.5rem;flex-wrap:wrap">
@@ -453,6 +467,46 @@ PAGE_TEMPLATE = r"""
     {% endif %}
   </div>
 
+  <!-- ════ MONITOR PANEL ════ -->
+  <div class="panel" id="panel-monitor">
+    {% if mon_error %}
+      <div class="error-box">Monitor service unavailable: {{ mon_error }}</div>
+    {% elif monitors | length == 0 %}
+      <div class="empty-state">No devices found.</div>
+    {% else %}
+      <div class="section-bar">
+        <span class="section-summary">
+          {{ monitors | length }} device{{ 's' if monitors | length != 1 }}
+          &middot; {{ mon_offline_count }} offline
+        </span>
+        <div>
+          <a class="btn" href="http://{{ request.host.split(':')[0] }}:5002" target="_blank">Full Dashboard</a>
+          <button class="btn" onclick="location.reload()">Refresh</button>
+        </div>
+      </div>
+      <div class="item-list">
+      {% for dev in monitors %}
+        <div class="item-card {{ 'off' if not dev.online else 'on' }}">
+          <div class="item-top">
+          <div class="item-info">
+            <div class="item-name">{{ dev.name }}</div>
+            <div class="item-meta">
+              {{ dev.type }}
+              {% if dev.ip %}&middot; {{ dev.ip }}{% endif %}
+              {% if dev.firmware %}&middot; FW: {{ dev.firmware }}{% endif %}
+              {% if dev.uptime %}&middot; Up: {{ dev.uptime }}{% endif %}
+            </div>
+          </div>
+          <div class="toggle-wrap">
+            <span class="badge {{ 'connected' if dev.online else 'disconnected' }}">{{ 'ONLINE' if dev.online else 'OFFLINE' }}</span>
+          </div>
+          </div>
+        </div>
+      {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
 </div>
 
 <div class="toast" id="toast"></div>
@@ -463,8 +517,18 @@ function switchTab(el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('panel-' + el.dataset.panel).classList.add('active');
+  const panel = el.dataset.panel;
+  document.getElementById('panel-' + panel).classList.add('active');
+  history.replaceState(null, '', '#' + panel);
 }
+// Restore tab from URL hash on load
+(function() {
+  const hash = location.hash.replace('#', '');
+  if (hash) {
+    const tab = document.querySelector('.tab[data-panel="' + hash + '"]');
+    if (tab) switchTab(tab);
+  }
+})();
 
 /* ── Toast ── */
 function toast(msg, type) {
@@ -648,6 +712,15 @@ def index():
     cam_off_count = sum(1 for c in cameras if c.get("isOff"))
     door_unlocked_count = sum(1 for d in doors if d.get("isUnlocked"))
 
+    monitors = []
+    mon_error = None
+    mon_data = _fetch_monitor_list()
+    if mon_data is None:
+        mon_error = "Cannot reach monitor service on port 5002"
+    else:
+        monitors = mon_data
+    mon_offline_count = sum(1 for m in monitors if not m.get("online", True))
+
     return render_template_string(
         PAGE_TEMPLATE,
         cameras=cameras,
@@ -656,6 +729,9 @@ def index():
         doors=doors,
         door_error=door_error,
         door_unlocked_count=door_unlocked_count,
+        monitors=monitors,
+        mon_error=mon_error,
+        mon_offline_count=mon_offline_count,
     )
 
 
@@ -682,6 +758,21 @@ def _fetch_door_list():
         )
         if r.status_code == 200:
             return r.json().get("doors", [])
+    except Exception:
+        pass
+    return None
+
+
+def _fetch_monitor_list():
+    """Get device list from the monitor backend."""
+    try:
+        r = requests.get(
+            f"{config.MONITOR_BACKEND}/api/list",
+            timeout=BACKEND_TIMEOUT,
+        )
+        if r.status_code == 200:
+            data = r.json()
+            return data.get("devices", data.get("monitors", []))
     except Exception:
         pass
     return None
