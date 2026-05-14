@@ -397,6 +397,20 @@ PAGE_TEMPLATE = r"""
             </label>
           </div>
           </div>
+          <div class="advanced-row {{ 'show' if not cam.isOff else '' }}" id="cam-adv-{{ cam.id }}">
+            <label class="adv-label" style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="checkbox" class="adv-checkbox" id="cam-adv-check-{{ cam.id }}" onchange="toggleCamAdvanced('{{ cam.id }}')"> Advanced</label>
+            <div id="cam-adv-options-{{ cam.id }}" style="display:none;align-items:center;gap:.5rem;flex-wrap:wrap">
+              <label class="adv-label">Privacy for:</label>
+              <select class="time-select" id="cam-time-{{ cam.id }}" onchange="camTimeChanged(this,'{{ cam.id }}')">
+                <option value="5">5 min</option><option value="15" selected>15 min</option><option value="30">30 min</option><option value="60">1 hr</option><option value="120">2 hr</option><option value="custom">Custom...</option></select>
+              <input type="number" id="cam-custom-time-{{ cam.id }}" min="1" max="480" placeholder="min" style="display:none;width:55px" class="time-select">
+              <button class="btn-timed" onclick="timedOffCam('{{ cam.id }}','{{ cam.name }}')">&#9201; Timed Privacy</button>
+            </div>
+          </div>
+          <div class="timer-display" id="cam-timer-{{ cam.id }}"><span class="timer-icon">&#9201;</span><span class="timer-text">Auto-enables in</span>
+            <span class="timer-countdown" id="cam-countdown-{{ cam.id }}">--:--</span>
+            <button class="btn-cancel-timer" onclick="cancelCamTimer('{{ cam.id }}')">Cancel &amp; Enable</button>
+          </div>
         </div>
       {% endfor %}
       </div>
@@ -539,10 +553,15 @@ function toast(msg, type) {
 }
 
 /* ── Camera controls ── */
+function toggleCamAdvanced(id){const c=document.getElementById('cam-adv-check-'+id).checked;document.getElementById('cam-adv-options-'+id).style.display=c?'flex':'none'}
+function camTimeChanged(sel,id){document.getElementById('cam-custom-time-'+id).style.display=sel.value==='custom'?'inline-block':'none'}
+
 async function toggleCamera(el) {
   const id = el.dataset.id, name = el.dataset.name, turnOn = el.checked;
   const label = document.getElementById('cam-label-' + id);
   const card  = document.getElementById('cam-card-' + id);
+  const adv = document.getElementById('cam-adv-' + id);
+  const tmr = document.getElementById('cam-timer-' + id);
   el.disabled = true; label.textContent = '...';
 
   try {
@@ -556,7 +575,9 @@ async function toggleCamera(el) {
     const isOff = data.camera ? data.camera.isOff : !turnOn;
     label.textContent = isOff ? 'off' : 'on';
     card.className = 'item-card ' + (isOff ? 'off' : 'on');
-    toast(name + ' → ' + (isOff ? 'OFF (privacy)' : 'ON'), 'ok');
+    if (adv) adv.classList.toggle('show', !isOff);
+    if (turnOn && tmr) { tmr.classList.remove('show'); if(camCdi[id])clearInterval(camCdi[id]); }
+    toast(name + ' \u2192 ' + (isOff ? 'OFF (privacy)' : 'ON'), 'ok');
   } catch (err) {
     el.checked = !turnOn;
     label.textContent = turnOn ? 'off' : 'on';
@@ -564,8 +585,48 @@ async function toggleCamera(el) {
   } finally { el.disabled = false; }
 }
 
+const camCdi = {};
+function startCamCountdown(id, sec) {
+  const td = document.getElementById('cam-timer-' + id), cd = document.getElementById('cam-countdown-' + id);
+  if (!td || !cd) return;
+  td.classList.add('show');
+  if (camCdi[id]) clearInterval(camCdi[id]);
+  let rem = sec;
+  function u() {
+    if (rem <= 0) { clearInterval(camCdi[id]); td.classList.remove('show'); setTimeout(() => location.reload(), 1000); return; }
+    const h = Math.floor(rem/3600), m = Math.floor((rem%3600)/60), s = rem%60;
+    cd.textContent = h > 0 ? h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0') : m+':'+String(s).padStart(2,'0');
+    rem--;
+  }
+  u(); camCdi[id] = setInterval(u, 1000);
+}
+
+async function timedOffCam(id, name) {
+  const sel = document.getElementById('cam-time-' + id);
+  let min = parseInt(sel.value);
+  if (sel.value === 'custom') { min = parseInt(document.getElementById('cam-custom-time-' + id).value); if (!min || min < 1) { toast('Enter valid minutes', 'err'); return; } }
+  try {
+    const r = await fetch('/api/cameras/timed-off', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({camera_id: id, minutes: min}) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
+    const card = document.getElementById('cam-card-' + id), label = document.getElementById('cam-label-' + id),
+          toggle = document.getElementById('cam-toggle-' + id), adv = document.getElementById('cam-adv-' + id);
+    card.className = 'item-card off'; label.textContent = 'off'; toggle.checked = false; if(adv) adv.classList.remove('show');
+    startCamCountdown(id, min * 60);
+    toast(name + ' \u2192 OFF for ' + min + ' min', 'ok');
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
+async function cancelCamTimer(id) {
+  try {
+    const r = await fetch('/api/cameras/cancel-timer', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({camera_id: id}) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
+    if (camCdi[id]) clearInterval(camCdi[id]); document.getElementById('cam-timer-' + id).classList.remove('show');
+    toast(d.name + ' \u2192 timer cancelled, ENABLED', 'ok'); setTimeout(() => location.reload(), 500);
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
 async function enableAllCameras() {
-  if (!confirm('Re-enable ALL cameras?')) return;
+  if (!confirm('Re-enable ALL cameras (and cancel all timers)?')) return;
   try {
     const r = await fetch('/api/cameras/enable-all', { method: 'POST' });
     const data = await r.json();
@@ -574,6 +635,10 @@ async function enableAllCameras() {
     setTimeout(() => location.reload(), 800);
   } catch (err) { toast('Error: ' + err.message, 'err'); }
 }
+
+// Load active camera timers on page load
+(async function(){try{const r=await fetch('/api/cameras/timers');const d=await r.json();
+for(const[id,info]of Object.entries(d)){if(info.remaining_sec>0)startCamCountdown(id,info.remaining_sec)}}catch(e){}})();
 
 /* ── Door controls ── */
 function toggleDoorAdvanced(id){const c=document.getElementById('door-adv-check-'+id).checked;document.getElementById('door-adv-options-'+id).style.display=c?'flex':'none'}
@@ -808,6 +873,26 @@ def proxy_camera_toggle():
 def proxy_camera_enable_all():
     result, status = _proxy_post(config.CAMERA_BACKEND, "/api/enable-all", {})
     return jsonify(result), status
+
+
+@app.route("/api/cameras/timed-off", methods=["POST"])
+def proxy_camera_timed_off():
+    data = request.get_json(force=True)
+    result, status = _proxy_post(config.CAMERA_BACKEND, "/api/timed-off", data)
+    return jsonify(result), status
+
+
+@app.route("/api/cameras/cancel-timer", methods=["POST"])
+def proxy_camera_cancel_timer():
+    data = request.get_json(force=True)
+    result, status = _proxy_post(config.CAMERA_BACKEND, "/api/cancel-timer", data)
+    return jsonify(result), status
+
+
+@app.route("/api/cameras/timers")
+def proxy_camera_timers():
+    data = _proxy_get(config.CAMERA_BACKEND, "/api/timers")
+    return jsonify(data or {})
 
 
 @app.route("/api/doors/toggle", methods=["POST"])
