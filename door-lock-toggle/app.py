@@ -265,8 +265,9 @@ def api_timers():
 @app.route("/api/lock-all", methods=["POST"])
 def api_lock_all():
     try:
-        with timed_lock:
-            for did in list(timed_unlocks.keys()): cancel_timer(did)
+        active_ids = list(timed_unlocks.keys())
+        for did in active_ids:
+            cancel_timer(did)
         changed = access_api.ensure_all_doors_locked()
         return jsonify({"ok": True, "changed": len(changed), "doors": changed})
     except Exception as exc:

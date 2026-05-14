@@ -307,8 +307,9 @@ def api_timers():
 @app.route("/api/enable-all", methods=["POST"])
 def api_enable_all():
     try:
-        with timed_lock:
-            for cid in list(timed_privacies.keys()): cancel_timer(cid)
+        active_ids = list(timed_privacies.keys())
+        for cid in active_ids:
+            cancel_timer(cid)
         changed = protect_api.ensure_all_cameras_on()
         return jsonify({"ok": True, "changed": len(changed), "cameras": changed})
     except Exception as exc:
