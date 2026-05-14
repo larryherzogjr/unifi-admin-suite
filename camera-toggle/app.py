@@ -138,7 +138,7 @@ h1{font-size:1.4rem;font-weight:600;margin-bottom:.25rem}
 {% if error %}<div class="error-box">{{ error }}</div>{% else %}
 <div class="topbar">
 <span style="font-size:.8rem;color:var(--muted)">{{ cameras|length }} camera{{ 's' if cameras|length != 1 }} &middot; {{ cameras|selectattr('isOff')|list|length }} off</span>
-<div><button class="btn" onclick="location.reload()">Refresh</button></div>
+<div><button class="btn" onclick="location.href=location.pathname+'?t='+Date.now()+(location.hash||'')">Refresh</button></div>
 </div>
 <div class="camera-list">
 {% for cam in cameras %}
@@ -178,13 +178,13 @@ try{const r=await fetch('/api/toggle',{method:'POST',headers:{'Content-Type':'ap
 const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
 const isOff=d.camera.isOff;
 toast(name+' \u2192 '+(isOff?'OFF (privacy)':'ON'),'ok');
-setTimeout(()=>location.reload(),1200)}
+setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),1200)}
 catch(e){el.checked=!turnOn;label.textContent=turnOn?'off':'on';toast('Error: '+e.message,'err');el.disabled=false}}
 
 const cdi={};
 function startCountdown(id,sec){const td=document.getElementById('timer-'+id),cd=document.getElementById('countdown-'+id);td.classList.add('show');
 if(cdi[id])clearInterval(cdi[id]);let rem=sec;
-function u(){if(rem<=0){clearInterval(cdi[id]);td.classList.remove('show');setTimeout(()=>location.reload(),1000);return}
+function u(){if(rem<=0){clearInterval(cdi[id]);td.classList.remove('show');setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),1000);return}
 const h=Math.floor(rem/3600),m=Math.floor((rem%3600)/60),s=rem%60;
 cd.textContent=h>0?h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'):m+':'+String(s).padStart(2,'0');rem--}
 u();cdi[id]=setInterval(u,1000)}
@@ -202,7 +202,7 @@ catch(e){toast('Error: '+e.message,'err')}}
 async function cancelTimer(id){try{const r=await fetch('/api/cancel-timer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({camera_id:id})});
 const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
 if(cdi[id])clearInterval(cdi[id]);document.getElementById('timer-'+id).classList.remove('show');
-toast(d.name+' \u2192 timer cancelled, ENABLED','ok');setTimeout(()=>location.reload(),500)}
+toast(d.name+' \u2192 timer cancelled, ENABLED','ok');setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),500)}
 catch(e){toast('Error: '+e.message,'err')}}
 
 (async function(){try{const r=await fetch('/api/timers');const d=await r.json();

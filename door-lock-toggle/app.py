@@ -124,7 +124,7 @@ h1{font-size:1.4rem;font-weight:600;margin-bottom:.25rem}
 {% if error %}<div class="error-box">{{ error }}</div>{% else %}
 <div class="topbar">
 <span style="font-size:.8rem;color:var(--muted)">{{ doors|length }} door{{ 's' if doors|length != 1 }} &middot; {{ doors|selectattr('isUnlocked')|list|length }} unlocked</span>
-<div><button class="btn success" onclick="lockAll()">Lock All</button> <button class="btn" onclick="location.reload()">Refresh</button></div>
+<div><button class="btn success" onclick="lockAll()">Lock All</button> <button class="btn" onclick="location.href=location.pathname+'?t='+Date.now()+(location.hash||'')">Refresh</button></div>
 </div>
 <div class="door-list">
 {% for door in doors %}
@@ -162,7 +162,7 @@ try{const r=await fetch('/api/toggle',{method:'POST',headers:{'Content-Type':'ap
 const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
 const u=!shouldLock;
 toast(name+' \u2192 '+(u?'UNLOCKED':'LOCKED'),'ok');
-setTimeout(()=>location.reload(),1200)}
+setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),1200)}
 catch(e){el.checked=!shouldLock;label.textContent=shouldLock?'unlocked':'locked';toast('Error: '+e.message,'err');el.disabled=false}}
 async function timedUnlock(id,name){const sel=document.getElementById('time-'+id);let min=parseInt(sel.value);
 if(sel.value==='custom'){min=parseInt(document.getElementById('custom-time-'+id).value);if(!min||min<1){toast('Enter valid minutes','err');return}}
@@ -175,18 +175,18 @@ catch(e){toast('Error: '+e.message,'err')}}
 const cdi={};
 function startCountdown(id,sec){const td=document.getElementById('timer-'+id),cd=document.getElementById('countdown-'+id);td.classList.add('show');
 if(cdi[id])clearInterval(cdi[id]);let rem=sec;
-function u(){if(rem<=0){clearInterval(cdi[id]);td.classList.remove('show');setTimeout(()=>location.reload(),1000);return}
+function u(){if(rem<=0){clearInterval(cdi[id]);td.classList.remove('show');setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),1000);return}
 const h=Math.floor(rem/3600),m=Math.floor((rem%3600)/60),s=rem%60;
 cd.textContent=h>0?h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'):m+':'+String(s).padStart(2,'0');rem--}
 u();cdi[id]=setInterval(u,1000)}
 async function cancelTimer(id){try{const r=await fetch('/api/cancel-timer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({door_id:id})});
 const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
 if(cdi[id])clearInterval(cdi[id]);document.getElementById('timer-'+id).classList.remove('show');
-toast(d.name+' \u2192 timer cancelled, LOCKED','ok');setTimeout(()=>location.reload(),500)}
+toast(d.name+' \u2192 timer cancelled, LOCKED','ok');setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),500)}
 catch(e){toast('Error: '+e.message,'err')}}
 async function lockAll(){if(!confirm('Lock ALL doors (and cancel all timers)?'))return;
 try{const r=await fetch('/api/lock-all',{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
-toast('Locked '+d.changed+' door(s)','ok');setTimeout(()=>location.reload(),800)}catch(e){toast('Error: '+e.message,'err')}}
+toast('Locked '+d.changed+' door(s)','ok');setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),800)}catch(e){toast('Error: '+e.message,'err')}}
 (async function(){try{const r=await fetch('/api/timers');const d=await r.json();
 for(const[id,info]of Object.entries(d)){if(info.remaining_sec>0)startCountdown(id,info.remaining_sec)}}catch(e){}})();
 </script></body></html>"""

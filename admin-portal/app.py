@@ -367,7 +367,7 @@ PAGE_TEMPLATE = r"""
         </span>
         <div>
           <button class="btn success" onclick="enableAllCameras()">Enable All</button>
-          <button class="btn" onclick="location.reload()">Refresh</button>
+          <button class="btn" onclick="location.href=location.pathname+'?t='+Date.now()+(location.hash||'')">Refresh</button>
         </div>
       </div>
       <div class="item-list">
@@ -431,7 +431,7 @@ PAGE_TEMPLATE = r"""
         </span>
         <div>
           <button class="btn success" onclick="lockAllDoors()">Lock All</button>
-          <button class="btn" onclick="location.reload()">Refresh</button>
+          <button class="btn" onclick="location.href=location.pathname+'?t='+Date.now()+(location.hash||'')">Refresh</button>
         </div>
       </div>
       <div class="item-list">
@@ -495,7 +495,7 @@ PAGE_TEMPLATE = r"""
         </span>
         <div>
           <a class="btn" href="http://{{ request.host.split(':')[0] }}:5002" target="_blank">Full Dashboard</a>
-          <button class="btn" onclick="location.reload()">Refresh</button>
+          <button class="btn" onclick="location.href=location.pathname+'?t='+Date.now()+(location.hash||'')">Refresh</button>
         </div>
       </div>
       <div class="item-list">
@@ -571,7 +571,7 @@ async function toggleCamera(el) {
     if (!r.ok) throw new Error(data.error || 'API error');
     const isOff = data.camera ? data.camera.isOff : !turnOn;
     toast(name + ' \u2192 ' + (isOff ? 'OFF (privacy)' : 'ON'), 'ok');
-    setTimeout(() => location.reload(), 1200);
+    setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 1200);
   } catch (err) {
     el.checked = !turnOn;
     label.textContent = turnOn ? 'off' : 'on';
@@ -588,7 +588,7 @@ function startCamCountdown(id, sec) {
   if (camCdi[id]) clearInterval(camCdi[id]);
   let rem = sec;
   function u() {
-    if (rem <= 0) { clearInterval(camCdi[id]); td.classList.remove('show'); setTimeout(() => location.reload(), 1000); return; }
+    if (rem <= 0) { clearInterval(camCdi[id]); td.classList.remove('show'); setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 1000); return; }
     const h = Math.floor(rem/3600), m = Math.floor((rem%3600)/60), s = rem%60;
     cd.textContent = h > 0 ? h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0') : m+':'+String(s).padStart(2,'0');
     rem--;
@@ -616,7 +616,7 @@ async function cancelCamTimer(id) {
     const r = await fetch('/api/cameras/cancel-timer', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({camera_id: id}) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
     if (camCdi[id]) clearInterval(camCdi[id]); document.getElementById('cam-timer-' + id).classList.remove('show');
-    toast(d.name + ' \u2192 timer cancelled, ENABLED', 'ok'); setTimeout(() => location.reload(), 500);
+    toast(d.name + ' \u2192 timer cancelled, ENABLED', 'ok'); setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 500);
   } catch (e) { toast('Error: ' + e.message, 'err'); }
 }
 
@@ -627,7 +627,7 @@ async function enableAllCameras() {
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'API error');
     toast('Enabled ' + (data.changed || 0) + ' camera(s)', 'ok');
-    setTimeout(() => location.reload(), 800);
+    setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 800);
   } catch (err) { toast('Error: ' + err.message, 'err'); }
 }
 
@@ -654,7 +654,7 @@ async function toggleDoor(el) {
     if (!r.ok) throw new Error(data.error || 'API error');
     const isUnlocked = !shouldLock;
     toast(name + ' \u2192 ' + (isUnlocked ? 'UNLOCKED' : 'LOCKED'), 'ok');
-    setTimeout(() => location.reload(), 1200);
+    setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 1200);
   } catch (err) {
     el.checked = !shouldLock;
     label.textContent = shouldLock ? 'unlocked' : 'locked';
@@ -670,7 +670,7 @@ function startDoorCountdown(id, sec) {
   if (doorCdi[id]) clearInterval(doorCdi[id]);
   let rem = sec;
   function u() {
-    if (rem <= 0) { clearInterval(doorCdi[id]); td.classList.remove('show'); setTimeout(() => location.reload(), 1000); return; }
+    if (rem <= 0) { clearInterval(doorCdi[id]); td.classList.remove('show'); setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 1000); return; }
     const h = Math.floor(rem/3600), m = Math.floor((rem%3600)/60), s = rem%60;
     cd.textContent = h > 0 ? h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0') : m+':'+String(s).padStart(2,'0');
     rem--;
@@ -698,7 +698,7 @@ async function cancelDoorTimer(id) {
     const r = await fetch('/api/doors/cancel-timer', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({door_id: id}) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
     if (doorCdi[id]) clearInterval(doorCdi[id]); document.getElementById('door-timer-' + id).classList.remove('show');
-    toast(d.name + ' \u2192 timer cancelled, LOCKED', 'ok'); setTimeout(() => location.reload(), 500);
+    toast(d.name + ' \u2192 timer cancelled, LOCKED', 'ok'); setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 500);
   } catch (e) { toast('Error: ' + e.message, 'err'); }
 }
 
@@ -709,7 +709,7 @@ async function lockAllDoors() {
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'API error');
     toast('Locked ' + (data.changed || 0) + ' door(s)', 'ok');
-    setTimeout(() => location.reload(), 800);
+    setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 800);
   } catch (err) { toast('Error: ' + err.message, 'err'); }
 }
 
