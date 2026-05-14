@@ -43,9 +43,15 @@ def _proxy_get(backend: str, path: str) -> dict | list | None:
 def _proxy_post(backend: str, path: str, data: dict) -> tuple[dict, int]:
     """POST to a backend service and return (json, status_code)."""
     try:
+        # Forward original client info so audit logging captures the real client
+        fwd_headers = {
+            "X-Forwarded-For": request.headers.get("X-Forwarded-For", request.remote_addr),
+            "X-Forwarded-User-Agent": request.headers.get("User-Agent", ""),
+        }
         r = requests.post(
             f"{backend}{path}",
             json=data,
+            headers=fwd_headers,
             timeout=BACKEND_TIMEOUT,
         )
         return r.json(), r.status_code
@@ -349,6 +355,10 @@ PAGE_TEMPLATE = r"""
       <span class="count">{{ monitors | length }}</span>
     {% endif %}
   </div>
+  <div class="tab" data-panel="audit" onclick="switchTab(this)">
+    Audit
+    <span class="count">{{ audit_today_count }}</span>
+  </div>
 </div>
 
 <div class="content">
@@ -519,6 +529,47 @@ PAGE_TEMPLATE = r"""
           </div>
         </div>
       {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ════ AUDIT PANEL ════ -->
+  <div class="panel" id="panel-audit">
+    {% if audit_error %}
+      <div class="error-box">Audit service unavailable: {{ audit_error }}</div>
+    {% else %}
+      <div class="section-bar">
+        <span class="section-summary">
+          {{ audit_today_count }} entries today
+          &middot; {{ audit_total }} total (last 7 days)
+        </span>
+        <div>
+          <a class="btn" href="http://{{ request.host.split(':')[0] }}:5004" target="_blank">Full Audit Log</a>
+          <button class="btn" onclick="location.href=location.pathname+'?t='+Date.now()+(location.hash||'')">Refresh</button>
+        </div>
+      </div>
+      <div class="item-list">
+      {% for e in audit_recent %}
+        <div class="item-card {{ 'off' if 'off' in e.action or 'unlock' in e.action else 'on' }}">
+          <div class="item-top">
+          <div class="item-info">
+            <div class="item-name">{{ e.icon }} {{ e.action_label }} — {{ e.target }}</div>
+            <div class="item-meta">
+              {{ e.timestamp }}
+              &middot; <span class="badge {{ 'disconnected' if 'off' in e.action or 'unlock' in e.action else 'connected' }}">{{ e.category | upper }}</span>
+              &middot; {{ e.client_host }}
+              {% if e.duration_min %}&middot; {{ e.duration_min }} min{% endif %}
+            </div>
+          </div>
+          </div>
+          {% if e.reason %}
+          <div style="margin-top:.35rem;font-size:.78rem;color:var(--text);font-style:italic;padding:.25rem .5rem;background:rgba(59,130,246,.05);border-left:2px solid var(--accent);border-radius:0 4px 4px 0">{{ e.reason }}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+      {% if audit_recent | length == 0 %}
+        <div class="empty-state">No audit entries today.</div>
+      {% endif %}
       </div>
     {% endif %}
   </div>
@@ -775,6 +826,18 @@ def index():
         monitors = mon_data
     mon_offline_count = sum(1 for m in monitors if not m.get("online", True))
 
+    audit_recent = []
+    audit_today_count = 0
+    audit_total = 0
+    audit_error = None
+    audit_data = _fetch_audit_summary()
+    if audit_data is None:
+        audit_error = "Cannot reach audit service on port 5004"
+    else:
+        audit_recent = audit_data.get("recent", [])
+        audit_today_count = audit_data.get("today_count", 0)
+        audit_total = audit_data.get("total_entries", 0)
+
     return render_template_string(
         PAGE_TEMPLATE,
         cameras=cameras,
@@ -786,6 +849,10 @@ def index():
         monitors=monitors,
         mon_error=mon_error,
         mon_offline_count=mon_offline_count,
+        audit_recent=audit_recent,
+        audit_today_count=audit_today_count,
+        audit_total=audit_total,
+        audit_error=audit_error,
     )
 
 
@@ -842,6 +909,20 @@ def _fetch_monitor_list():
                         # If we got data at all, assume online
                         dev["online"] = True
             return devices
+    except Exception:
+        pass
+    return None
+
+
+def _fetch_audit_summary():
+    """Get audit log summary from the audit backend."""
+    try:
+        r = requests.get(
+            f"{config.AUDIT_BACKEND}/api/list",
+            timeout=BACKEND_TIMEOUT,
+        )
+        if r.status_code == 200:
+            return r.json()
     except Exception:
         pass
     return None
