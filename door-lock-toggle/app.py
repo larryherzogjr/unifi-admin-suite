@@ -156,16 +156,14 @@ function toast(m,t){const e=document.getElementById('toast');e.textContent=m;e.c
 function toggleAdvanced(id){const c=document.getElementById('adv-check-'+id).checked;document.getElementById('adv-options-'+id).style.display=c?'flex':'none'}
 function timeChanged(sel,id){document.getElementById('custom-time-'+id).style.display=sel.value==='custom'?'inline-block':'none'}
 async function toggleDoor(el){const id=el.dataset.id,name=el.dataset.name,shouldLock=el.checked;
-const label=document.getElementById('label-'+id),card=document.getElementById('card-'+id),badge=document.getElementById('badge-'+id),adv=document.getElementById('adv-'+id),tmr=document.getElementById('timer-'+id);
+const label=document.getElementById('label-'+id);
 el.disabled=true;label.textContent='...';
 try{const r=await fetch('/api/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({door_id:id,lock:shouldLock})});
 const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
-const u=!shouldLock;label.textContent=u?'unlocked':'locked';card.className='door-card '+(u?'unlocked':'locked');
-badge.textContent=u?'UNLOCKED':'LOCKED';badge.className='badge '+(u?'unlocked':'locked');
-adv.classList.toggle('show',!u);if(shouldLock)tmr.classList.remove('show');
-toast(name+' \u2192 '+(u?'UNLOCKED':'LOCKED'),'ok')}
-catch(e){el.checked=!shouldLock;label.textContent=shouldLock?'unlocked':'locked';toast('Error: '+e.message,'err')}
-finally{el.disabled=false}}
+const u=!shouldLock;
+toast(name+' \u2192 '+(u?'UNLOCKED':'LOCKED'),'ok');
+setTimeout(()=>location.reload(),1200)}
+catch(e){el.checked=!shouldLock;label.textContent=shouldLock?'unlocked':'locked';toast('Error: '+e.message,'err');el.disabled=false}}
 async function timedUnlock(id,name){const sel=document.getElementById('time-'+id);let min=parseInt(sel.value);
 if(sel.value==='custom'){min=parseInt(document.getElementById('custom-time-'+id).value);if(!min||min<1){toast('Enter valid minutes','err');return}}
 try{const r=await fetch('/api/timed-unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({door_id:id,minutes:min})});

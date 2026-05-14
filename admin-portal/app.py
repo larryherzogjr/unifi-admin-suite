@@ -559,9 +559,6 @@ function camTimeChanged(sel,id){document.getElementById('cam-custom-time-'+id).s
 async function toggleCamera(el) {
   const id = el.dataset.id, name = el.dataset.name, turnOn = el.checked;
   const label = document.getElementById('cam-label-' + id);
-  const card  = document.getElementById('cam-card-' + id);
-  const adv = document.getElementById('cam-adv-' + id);
-  const tmr = document.getElementById('cam-timer-' + id);
   el.disabled = true; label.textContent = '...';
 
   try {
@@ -573,16 +570,14 @@ async function toggleCamera(el) {
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'API error');
     const isOff = data.camera ? data.camera.isOff : !turnOn;
-    label.textContent = isOff ? 'off' : 'on';
-    card.className = 'item-card ' + (isOff ? 'off' : 'on');
-    if (adv) adv.classList.toggle('show', !isOff);
-    if (turnOn && tmr) { tmr.classList.remove('show'); if(camCdi[id])clearInterval(camCdi[id]); }
     toast(name + ' \u2192 ' + (isOff ? 'OFF (privacy)' : 'ON'), 'ok');
+    setTimeout(() => location.reload(), 1200);
   } catch (err) {
     el.checked = !turnOn;
     label.textContent = turnOn ? 'off' : 'on';
     toast('Error: ' + err.message, 'err');
-  } finally { el.disabled = false; }
+    el.disabled = false;
+  }
 }
 
 const camCdi = {};
@@ -647,10 +642,6 @@ function doorTimeChanged(sel,id){document.getElementById('door-custom-time-'+id)
 async function toggleDoor(el) {
   const id = el.dataset.id, name = el.dataset.name, shouldLock = el.checked;
   const label = document.getElementById('door-label-' + id);
-  const card  = document.getElementById('door-card-' + id);
-  const badge = document.getElementById('door-badge-' + id);
-  const adv = document.getElementById('door-adv-' + id);
-  const tmr = document.getElementById('door-timer-' + id);
   el.disabled = true; label.textContent = '...';
 
   try {
@@ -662,18 +653,14 @@ async function toggleDoor(el) {
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'API error');
     const isUnlocked = !shouldLock;
-    label.textContent = isUnlocked ? 'unlocked' : 'locked';
-    card.className = 'item-card ' + (isUnlocked ? 'unlocked' : 'locked');
-    badge.textContent = isUnlocked ? 'UNLOCKED' : 'LOCKED';
-    badge.className = 'badge ' + (isUnlocked ? 'unlocked' : 'locked');
-    adv.classList.toggle('show', !isUnlocked);
-    if (shouldLock) tmr.classList.remove('show');
     toast(name + ' \u2192 ' + (isUnlocked ? 'UNLOCKED' : 'LOCKED'), 'ok');
+    setTimeout(() => location.reload(), 1200);
   } catch (err) {
     el.checked = !shouldLock;
     label.textContent = shouldLock ? 'unlocked' : 'locked';
     toast('Error: ' + err.message, 'err');
-  } finally { el.disabled = false; }
+    el.disabled = false;
+  }
 }
 
 const doorCdi = {};

@@ -172,19 +172,14 @@ function toggleAdvanced(id){const c=document.getElementById('adv-check-'+id).che
 function timeChanged(sel,id){document.getElementById('custom-time-'+id).style.display=sel.value==='custom'?'inline-block':'none'}
 
 async function toggleCamera(el){const id=el.dataset.id,name=el.dataset.name,turnOn=el.checked;
-const label=document.getElementById('label-'+id),card=document.getElementById('card-'+id),badge=document.getElementById('badge-'+id),mode=document.getElementById('mode-'+id),adv=document.getElementById('adv-'+id),tmr=document.getElementById('timer-'+id);
+const label=document.getElementById('label-'+id);
 el.disabled=true;label.textContent='...';
 try{const r=await fetch('/api/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({camera_id:id,enable:turnOn})});
 const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
 const isOff=d.camera.isOff;
-label.textContent=isOff?'off':'on';card.className='camera-card '+(isOff?'off':'on');
-if(badge){badge.textContent=isOff?'OFF':'CONNECTED';badge.className='badge '+(isOff?'disconnected':'connected')}
-if(mode)mode.textContent=d.camera.recordingMode;
-adv.classList.toggle('show',!isOff);
-if(turnOn){tmr.classList.remove('show');if(cdi[id])clearInterval(cdi[id])}
-toast(name+' \u2192 '+(isOff?'OFF (privacy)':'ON'),'ok')}
-catch(e){el.checked=!turnOn;label.textContent=turnOn?'off':'on';toast('Error: '+e.message,'err')}
-finally{el.disabled=false}}
+toast(name+' \u2192 '+(isOff?'OFF (privacy)':'ON'),'ok');
+setTimeout(()=>location.reload(),1200)}
+catch(e){el.checked=!turnOn;label.textContent=turnOn?'off':'on';toast('Error: '+e.message,'err');el.disabled=false}}
 
 const cdi={};
 function startCountdown(id,sec){const td=document.getElementById('timer-'+id),cd=document.getElementById('countdown-'+id);td.classList.add('show');
