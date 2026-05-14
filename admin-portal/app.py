@@ -404,6 +404,7 @@ PAGE_TEMPLATE = r"""
               <select class="time-select" id="cam-time-{{ cam.id }}" onchange="camTimeChanged(this,'{{ cam.id }}')">
                 <option value="5">5 min</option><option value="15" selected>15 min</option><option value="30">30 min</option><option value="60">1 hr</option><option value="120">2 hr</option><option value="custom">Custom...</option></select>
               <input type="number" id="cam-custom-time-{{ cam.id }}" min="1" max="480" placeholder="min" style="display:none;width:55px" class="time-select">
+              <input type="text" id="cam-reason-{{ cam.id }}" class="time-select" placeholder="Reason (optional)" style="flex:1;min-width:120px">
               <button class="btn-timed" onclick="timedOffCam('{{ cam.id }}','{{ cam.name }}')">&#9201; Timed Privacy</button>
             </div>
           </div>
@@ -468,6 +469,7 @@ PAGE_TEMPLATE = r"""
               <select class="time-select" id="door-time-{{ door.id }}" onchange="doorTimeChanged(this,'{{ door.id }}')">
                 <option value="5">5 min</option><option value="15" selected>15 min</option><option value="30">30 min</option><option value="60">1 hr</option><option value="120">2 hr</option><option value="custom">Custom...</option></select>
               <input type="number" id="door-custom-time-{{ door.id }}" min="1" max="480" placeholder="min" style="display:none;width:55px" class="time-select">
+              <input type="text" id="door-reason-{{ door.id }}" class="time-select" placeholder="Reason (optional)" style="flex:1;min-width:120px">
               <button class="btn-timed" onclick="timedUnlockDoor('{{ door.id }}','{{ door.name }}')">&#9201; Timed Unlock</button>
             </div>
           </div>
@@ -565,7 +567,7 @@ async function toggleCamera(el) {
     const r = await fetch('/api/cameras/toggle', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ camera_id: id, enable: turnOn }),
+      body: JSON.stringify({ camera_id: id, enable: turnOn, reason: (document.getElementById('cam-reason-'+id)||{}).value||'' }),
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'API error');
@@ -601,7 +603,7 @@ async function timedOffCam(id, name) {
   let min = parseInt(sel.value);
   if (sel.value === 'custom') { min = parseInt(document.getElementById('cam-custom-time-' + id).value); if (!min || min < 1) { toast('Enter valid minutes', 'err'); return; } }
   try {
-    const r = await fetch('/api/cameras/timed-off', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({camera_id: id, minutes: min}) });
+    const r = await fetch('/api/cameras/timed-off', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({camera_id: id, minutes: min, reason: (document.getElementById('cam-reason-'+id)||{}).value||''}) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
     const card = document.getElementById('cam-card-' + id), label = document.getElementById('cam-label-' + id),
           toggle = document.getElementById('cam-toggle-' + id), adv = document.getElementById('cam-adv-' + id);
@@ -613,7 +615,7 @@ async function timedOffCam(id, name) {
 
 async function cancelCamTimer(id) {
   try {
-    const r = await fetch('/api/cameras/cancel-timer', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({camera_id: id}) });
+    const r = await fetch('/api/cameras/cancel-timer', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({camera_id: id, reason: 'Timer cancelled'}) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
     if (camCdi[id]) clearInterval(camCdi[id]); document.getElementById('cam-timer-' + id).classList.remove('show');
     toast(d.name + ' \u2192 timer cancelled, ENABLED', 'ok'); setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 500);
@@ -648,7 +650,7 @@ async function toggleDoor(el) {
     const r = await fetch('/api/doors/toggle', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ door_id: id, lock: shouldLock }),
+      body: JSON.stringify({ door_id: id, lock: shouldLock, reason: (document.getElementById('door-reason-'+id)||{}).value||'' }),
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'API error');
@@ -683,7 +685,7 @@ async function timedUnlockDoor(id, name) {
   let min = parseInt(sel.value);
   if (sel.value === 'custom') { min = parseInt(document.getElementById('door-custom-time-' + id).value); if (!min || min < 1) { toast('Enter valid minutes', 'err'); return; } }
   try {
-    const r = await fetch('/api/doors/timed-unlock', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({door_id: id, minutes: min}) });
+    const r = await fetch('/api/doors/timed-unlock', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({door_id: id, minutes: min, reason: (document.getElementById('door-reason-'+id)||{}).value||''}) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
     const card = document.getElementById('door-card-' + id), label = document.getElementById('door-label-' + id),
           badge = document.getElementById('door-badge-' + id), toggle = document.getElementById('door-toggle-' + id), adv = document.getElementById('door-adv-' + id);
@@ -695,7 +697,7 @@ async function timedUnlockDoor(id, name) {
 
 async function cancelDoorTimer(id) {
   try {
-    const r = await fetch('/api/doors/cancel-timer', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({door_id: id}) });
+    const r = await fetch('/api/doors/cancel-timer', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({door_id: id, reason: 'Timer cancelled'}) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
     if (doorCdi[id]) clearInterval(doorCdi[id]); document.getElementById('door-timer-' + id).classList.remove('show');
     toast(d.name + ' \u2192 timer cancelled, LOCKED', 'ok'); setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 500);
