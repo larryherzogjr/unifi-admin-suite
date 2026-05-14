@@ -24,7 +24,10 @@ import audit_helper
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("app")
 app = Flask(__name__)
-audit_helper.init("/var/log/unifi-access-audit.log")
+audit_helper.init(
+    "/var/log/unifi-access-audit.log",
+    unifi_network=getattr(config, "UNIFI_NETWORK", None),
+)
 
 # ── Timed unlock tracking ──
 timed_unlocks = {}   # { door_id: { name, unlock_at, lock_at, duration_min, timer } }

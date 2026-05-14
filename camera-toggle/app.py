@@ -27,7 +27,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 log = logging.getLogger("app")
 app = Flask(__name__)
 
-audit_helper.init("/var/log/unifi-camera-audit.log")
+audit_helper.init(
+    "/var/log/unifi-camera-audit.log",
+    unifi_network=getattr(config, "UNIFI_NETWORK", None),
+)
 
 # In-memory map of camera_id → original recording mode
 _original_modes: dict[str, str] = {}
