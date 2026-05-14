@@ -19,10 +19,12 @@ from flask import Flask, render_template_string, request, jsonify
 
 import config
 import access_api
+import audit_helper
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("app")
 app = Flask(__name__)
+audit_helper.init("/var/log/unifi-access-audit.log")
 
 # ── Timed unlock tracking ──
 timed_unlocks = {}   # { door_id: { name, unlock_at, lock_at, duration_min, timer } }
@@ -141,6 +143,7 @@ h1{font-size:1.4rem;font-weight:600;margin-bottom:.25rem}
 <select class="time-select" id="time-{{ door.id }}" onchange="timeChanged(this,'{{ door.id }}')">
 <option value="5">5 min</option><option value="15" selected>15 min</option><option value="30">30 min</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="custom">Custom...</option></select>
 <input type="number" id="custom-time-{{ door.id }}" min="1" max="480" placeholder="min" style="display:none;width:60px" class="time-select">
+<input type="text" id="reason-{{ door.id }}" class="time-select" placeholder="Reason (optional)" style="flex:1;min-width:120px">
 <button class="btn-timed" onclick="timedUnlock('{{ door.id }}','{{ door.name }}')">&#9201; Timed Unlock</button>
 </div></div>
 <div class="timer-display" id="timer-{{ door.id }}"><span class="timer-icon">&#9201;</span><span class="timer-text">Auto-locks in</span>
@@ -158,7 +161,7 @@ function timeChanged(sel,id){document.getElementById('custom-time-'+id).style.di
 async function toggleDoor(el){const id=el.dataset.id,name=el.dataset.name,shouldLock=el.checked;
 const label=document.getElementById('label-'+id);
 el.disabled=true;label.textContent='...';
-try{const r=await fetch('/api/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({door_id:id,lock:shouldLock})});
+try{const r=await fetch('/api/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({door_id:id,lock:shouldLock,reason:document.getElementById('reason-'+id)?document.getElementById('reason-'+id).value:''})});
 const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
 const u=!shouldLock;
 toast(name+' \u2192 '+(u?'UNLOCKED':'LOCKED'),'ok');
@@ -166,7 +169,7 @@ setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||
 catch(e){el.checked=!shouldLock;label.textContent=shouldLock?'unlocked':'locked';toast('Error: '+e.message,'err');el.disabled=false}}
 async function timedUnlock(id,name){const sel=document.getElementById('time-'+id);let min=parseInt(sel.value);
 if(sel.value==='custom'){min=parseInt(document.getElementById('custom-time-'+id).value);if(!min||min<1){toast('Enter valid minutes','err');return}}
-try{const r=await fetch('/api/timed-unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({door_id:id,minutes:min})});
+try{const r=await fetch('/api/timed-unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({door_id:id,minutes:min,reason:document.getElementById('reason-'+id)?document.getElementById('reason-'+id).value:''})});
 const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
 const card=document.getElementById('card-'+id),label=document.getElementById('label-'+id),badge=document.getElementById('badge-'+id),toggle=document.getElementById('toggle-'+id),adv=document.getElementById('adv-'+id);
 card.className='door-card unlocked';label.textContent='unlocked';badge.textContent='UNLOCKED';badge.className='badge unlocked';toggle.checked=false;adv.classList.remove('show');
@@ -179,7 +182,7 @@ function u(){if(rem<=0){clearInterval(cdi[id]);td.classList.remove('show');setTi
 const h=Math.floor(rem/3600),m=Math.floor((rem%3600)/60),s=rem%60;
 cd.textContent=h>0?h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'):m+':'+String(s).padStart(2,'0');rem--}
 u();cdi[id]=setInterval(u,1000)}
-async function cancelTimer(id){try{const r=await fetch('/api/cancel-timer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({door_id:id})});
+async function cancelTimer(id){try{const r=await fetch('/api/cancel-timer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({door_id:id,reason:'Timer cancelled'})});
 const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
 if(cdi[id])clearInterval(cdi[id]);document.getElementById('timer-'+id).classList.remove('show');
 toast(d.name+' \u2192 timer cancelled, LOCKED','ok');setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),500)}
@@ -206,13 +209,21 @@ def api_toggle():
     data = request.get_json(force=True)
     door_id = data.get("door_id")
     should_lock = data.get("lock", True)
+    reason = data.get("reason", "")
     if not door_id: return jsonify({"error": "door_id required"}), 400
     try:
+        # Look up door name
+        door_name = door_id
+        for d in access_api.list_doors():
+            s = access_api.door_summary(d)
+            if s["id"] == door_id: door_name = s["name"]; break
         if should_lock:
             cancel_timer(door_id)
             access_api.lock_door(door_id)
+            audit_helper.write("door_lock", door_name, reason)
         else:
             access_api.unlock_door(door_id)
+            audit_helper.write("door_unlock", door_name, reason)
         return jsonify({"ok": True, "locked": should_lock})
     except Exception as exc:
         log.exception("Toggle failed for %s", door_id)
@@ -235,6 +246,7 @@ def api_timed_unlock():
             s = access_api.door_summary(d)
             if s["id"] == door_id: door_name = s["name"]; break
         start_timed_unlock(door_id, door_name, minutes)
+        audit_helper.write("timed_door_unlock", door_name, data.get("reason", ""), duration_min=minutes)
         return jsonify({"ok": True, "door_id": door_id, "name": door_name, "minutes": minutes,
                         "lock_at": (datetime.now() + timedelta(minutes=minutes)).strftime("%H:%M:%S")})
     except Exception as exc:
@@ -251,6 +263,7 @@ def api_cancel_timer():
         door_name = entry.get("name", "Unknown")
         cancel_timer(door_id)
         access_api.lock_door(door_id)
+        audit_helper.write("cancel_timer_door_lock", door_name, data.get("reason", "Timer cancelled"))
         return jsonify({"ok": True, "name": door_name})
     except Exception as exc:
         log.exception("Cancel timer failed for %s", door_id)
@@ -267,6 +280,7 @@ def api_lock_all():
         for did in active_ids:
             cancel_timer(did)
         changed = access_api.ensure_all_doors_locked()
+        audit_helper.write("lock_all_doors", f"{len(changed)} doors", "")
         return jsonify({"ok": True, "changed": len(changed), "doors": changed})
     except Exception as exc:
         log.exception("Lock-all failed")

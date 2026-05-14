@@ -21,10 +21,13 @@ from flask import Flask, render_template_string, request, jsonify
 
 import config
 import protect_api
+import audit_helper
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("app")
 app = Flask(__name__)
+
+audit_helper.init("/var/log/unifi-camera-audit.log")
 
 # In-memory map of camera_id → original recording mode
 _original_modes: dict[str, str] = {}
@@ -156,6 +159,7 @@ h1{font-size:1.4rem;font-weight:600;margin-bottom:.25rem}
 <select class="time-select" id="time-{{ cam.id }}" onchange="timeChanged(this,'{{ cam.id }}')">
 <option value="5">5 min</option><option value="15" selected>15 min</option><option value="30">30 min</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="custom">Custom...</option></select>
 <input type="number" id="custom-time-{{ cam.id }}" min="1" max="480" placeholder="min" style="display:none;width:60px" class="time-select">
+<input type="text" id="reason-{{ cam.id }}" class="time-select" placeholder="Reason (optional)" style="flex:1;min-width:120px">
 <button class="btn-timed" onclick="timedOff('{{ cam.id }}','{{ cam.name }}')">&#9201; Timed Privacy</button>
 </div></div>
 <div class="timer-display" id="timer-{{ cam.id }}"><span class="timer-icon">&#9201;</span><span class="timer-text">Auto-enables in</span>
@@ -174,7 +178,7 @@ function timeChanged(sel,id){document.getElementById('custom-time-'+id).style.di
 async function toggleCamera(el){const id=el.dataset.id,name=el.dataset.name,turnOn=el.checked;
 const label=document.getElementById('label-'+id);
 el.disabled=true;label.textContent='...';
-try{const r=await fetch('/api/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({camera_id:id,enable:turnOn})});
+try{const r=await fetch('/api/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({camera_id:id,enable:turnOn,reason:document.getElementById('reason-'+id)?document.getElementById('reason-'+id).value:''})});
 const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
 const isOff=d.camera.isOff;
 toast(name+' \u2192 '+(isOff?'OFF (privacy)':'ON'),'ok');
@@ -191,7 +195,7 @@ u();cdi[id]=setInterval(u,1000)}
 
 async function timedOff(id,name){const sel=document.getElementById('time-'+id);let min=parseInt(sel.value);
 if(sel.value==='custom'){min=parseInt(document.getElementById('custom-time-'+id).value);if(!min||min<1){toast('Enter valid minutes','err');return}}
-try{const r=await fetch('/api/timed-off',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({camera_id:id,minutes:min})});
+try{const r=await fetch('/api/timed-off',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({camera_id:id,minutes:min,reason:document.getElementById('reason-'+id)?document.getElementById('reason-'+id).value:''})});
 const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
 const card=document.getElementById('card-'+id),label=document.getElementById('label-'+id),badge=document.getElementById('badge-'+id),mode=document.getElementById('mode-'+id),toggle=document.getElementById('toggle-'+id),adv=document.getElementById('adv-'+id);
 card.className='camera-card off';label.textContent='off';if(badge){badge.textContent='OFF';badge.className='badge disconnected'}
@@ -199,7 +203,7 @@ if(mode)mode.textContent='never';toggle.checked=false;adv.classList.remove('show
 startCountdown(id,min*60);toast(name+' \u2192 OFF for '+min+' min','ok')}
 catch(e){toast('Error: '+e.message,'err')}}
 
-async function cancelTimer(id){try{const r=await fetch('/api/cancel-timer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({camera_id:id})});
+async function cancelTimer(id){try{const r=await fetch('/api/cancel-timer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({camera_id:id,reason:'Timer cancelled'})});
 const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
 if(cdi[id])clearInterval(cdi[id]);document.getElementById('timer-'+id).classList.remove('show');
 toast(d.name+' \u2192 timer cancelled, ENABLED','ok');setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),500)}
@@ -240,18 +244,22 @@ def api_toggle():
     data = request.get_json(force=True)
     camera_id = data.get("camera_id")
     enable = data.get("enable", True)
+    reason = data.get("reason", "")
     if not camera_id: return jsonify({"error": "camera_id required"}), 400
     try:
         if enable:
-            cancel_timer(camera_id)  # Cancel any active timed privacy
+            cancel_timer(camera_id)
             mode = _original_modes.pop(camera_id, None)
             result = protect_api.set_camera_on(camera_id, mode)
+            audit_helper.write("camera_on", result.get("name", camera_id), reason)
         else:
             current = protect_api.get_camera(camera_id)
+            cam_name = current.get("name", camera_id)
             cur_mode = current.get("recordingSettings", {}).get("mode", "always")
             if cur_mode != "never":
                 _original_modes[camera_id] = cur_mode
             result = protect_api.set_camera_off(camera_id)
+            audit_helper.write("camera_off", cam_name, reason)
         return jsonify({"ok": True, "camera": protect_api.camera_summary(result)})
     except Exception as exc:
         log.exception("Toggle failed for %s", camera_id)
@@ -272,6 +280,7 @@ def api_timed_off():
         cam_name = current.get("name", "Unknown")
         cur_mode = current.get("recordingSettings", {}).get("mode", "always")
         start_timed_privacy(camera_id, cam_name, minutes, cur_mode)
+        audit_helper.write("timed_camera_off", cam_name, data.get("reason", ""), duration_min=minutes)
         return jsonify({"ok": True, "camera_id": camera_id, "name": cam_name, "minutes": minutes,
                         "on_at": (datetime.now() + timedelta(minutes=minutes)).strftime("%H:%M:%S")})
     except Exception as exc:
@@ -290,6 +299,7 @@ def api_cancel_timer():
         cancel_timer(camera_id)
         protect_api.set_camera_on(camera_id, original_mode)
         _original_modes.pop(camera_id, None)
+        audit_helper.write("cancel_timer_camera_on", cam_name, data.get("reason", "Timer cancelled"))
         return jsonify({"ok": True, "name": cam_name})
     except Exception as exc:
         log.exception("Cancel timer failed for %s", camera_id)
@@ -306,6 +316,7 @@ def api_enable_all():
         for cid in active_ids:
             cancel_timer(cid)
         changed = protect_api.ensure_all_cameras_on()
+        audit_helper.write("enable_all_cameras", f"{len(changed)} cameras", "")
         return jsonify({"ok": True, "changed": len(changed), "cameras": changed})
     except Exception as exc:
         log.exception("Enable-all failed")
