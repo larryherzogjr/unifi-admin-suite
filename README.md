@@ -1,25 +1,61 @@
 # UniFi Admin Suite
 
-A four-service physical security management platform for UniFi infrastructure,
+A five-service physical security management platform for UniFi infrastructure,
 built as a capstone project for the M.S. in Business Information Systems at
 Valley City State University.
 
 ## Services
 
 | Service | Port | Purpose |
-|---|---|---|
-| Camera Privacy Toggle | 5000 | Selectively disable/enable cameras for privacy |
-| Door Lock Toggle | 5001 | Temporarily unlock/lock doors |
-| Hardware Monitor | 5002 | Real-time device health + email alerts |
-| Admin Portal | 8080 | Unified tabbed dashboard for all three |
+|---|---:|---|
+| Camera Privacy Toggle | 5000 | Selectively disable and enable cameras for privacy |
+| Door Lock Toggle | 5001 | Temporarily unlock and lock doors |
+| Hardware Monitor | 5002 | Real-time device health and email alerts |
+| Audit Viewer | 5004 | Searchable camera and door action history |
+| Admin Portal | 8080 | Unified dashboard for all four backend services |
+
+## Technology
+
+- Python 3.9 or newer
+- Flask with inline Jinja templates and vanilla HTML, CSS, and JavaScript
+- Requests and urllib3 for UniFi controller communication
+- systemd for long-running services and scheduled safety jobs
+
+There is no separate frontend toolchain or build step.
 
 ## Setup
 
-Each service has its own directory with a `requirements.txt` and
-`config.example.py`. Copy the example to `config.py` and fill in
-your controller credentials before running.
+Each service has its own directory, virtual environment, `requirements.txt`,
+and `config.example.py`:
 
-See individual README files in each subdirectory for detailed setup.
+```bash
+cd <service-directory>
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+cp config.example.py config.py
+chmod 600 config.py
+python app.py
+```
+
+Configure and start the four backend services before the Admin Portal. The
+Portal expects the Camera, Door, Monitor, and Audit services on localhost.
+
+Use the camera and door safety scripts with `--dry-run` before enabling their
+systemd timers:
+
+```bash
+python camera-toggle/ensure_all_on.py --dry-run
+python door-lock-toggle/ensure_all_locked.py --dry-run
+```
+
+See the README in each service directory for controller credentials, service
+management, cron, and security details. Keep the suite on a management network
+and never commit a populated `config.py`.
+
+The committed systemd units use the production `/opt/unifi-*` paths and the
+`lherzog` service account. Adjust `User`, `WorkingDirectory`, and `ExecStart`
+before installing them on a different host.
 
 ## Author
 

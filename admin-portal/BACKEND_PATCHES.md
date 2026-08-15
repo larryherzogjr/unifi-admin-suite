@@ -1,3 +1,6 @@
+# Historical note: the routes described below are already present in this
+# repository. Do not apply this file as a patch to the current source.
+#
 # =============================================================================
 # Backend Patches — add /api/list endpoints
 # =============================================================================

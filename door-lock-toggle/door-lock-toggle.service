@@ -1,0 +1,18 @@
+[Unit]
+Description=UniFi Access Door Lock Toggle
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lherzog
+WorkingDirectory=/opt/unifi-access
+ExecStart=/opt/unifi-access/.venv/bin/python3 app.py
+UMask=0077
+StateDirectory=unifi-access
+StateDirectoryMode=0700
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

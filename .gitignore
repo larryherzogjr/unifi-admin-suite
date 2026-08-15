@@ -3,11 +3,13 @@
 __pycache__/
 *.pyc
 
-# Sensitive config files (contain credentials)
+# Local config files (some contain credentials)
 camera-toggle/config.py
 door-lock-toggle/config.py
+door-lock-toggle/door_state.db*
 hardware-monitor/config.py
 admin-portal/config.py
+audit-viewer/config.py
 
 # Logs
 *.log

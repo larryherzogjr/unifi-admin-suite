@@ -5,6 +5,8 @@ Handles door listing, lock/unlock operations, and status checking via the
 official developer API on port 12445 with Bearer token authentication.
 """
 
+from __future__ import annotations
+
 import time
 import logging
 import urllib3

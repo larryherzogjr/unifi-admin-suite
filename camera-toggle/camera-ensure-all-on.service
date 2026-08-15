@@ -1,0 +1,11 @@
+[Unit]
+Description=Ensure all UniFi Protect cameras are recording
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=lherzog
+WorkingDirectory=/opt/unifi-camera-toggle
+ExecStart=/opt/unifi-camera-toggle/.venv/bin/python3 /opt/unifi-camera-toggle/ensure_all_on.py
+UMask=0077

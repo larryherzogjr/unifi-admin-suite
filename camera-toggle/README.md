@@ -11,6 +11,9 @@ A lightweight admin tool for selectively disabling/enabling UniFi Protect camera
 | `protect_api.py` | Shared UniFi Protect API client with group filtering |
 | `config.py` | Connection settings, camera groups, default recording mode |
 | `requirements.txt` | Python dependencies |
+| `camera-toggle.service` | systemd service definition |
+| `camera-ensure-all-on.service` | One-shot nightly safety service |
+| `camera-ensure-all-on.timer` | 11:00 PM America/Chicago schedule |
 
 ## Quick Start
 
@@ -18,7 +21,9 @@ A lightweight admin tool for selectively disabling/enabling UniFi Protect camera
 cd /opt/unifi-camera-toggle
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+cp config.example.py config.py
+chmod 600 config.py
 nano config.py          # Fill in controller credentials and camera groups
 python app.py           # → http://your-server:5000
 ```
@@ -28,7 +33,7 @@ python app.py           # → http://your-server:5000
 Copy `config.example.py` to `config.py` and edit:
 
 ```python
-PROTECT_HOST = "protect.se-test.org"
+PROTECT_HOST = "protect.example.local"
 PROTECT_USERNAME = "local-admin"
 PROTECT_PASSWORD = "your-password"
 VERIFY_SSL = False
@@ -58,6 +63,13 @@ Groups filter the view only — the toggle API works on any camera regardless
 of group. An empty list shows all cameras. Non-default groups display a blue
 badge on the page title.
 
+## Optional Client Device Lookup
+
+Set `UNIFI_NETWORK` in `config.py` to a dictionary containing `host`,
+`username`, `password`, and `verify_ssl` to resolve audit-log client IPs using
+the UniFi Network controller. Leave it as `None` to use local name-resolution
+methods and an IP fallback.
+
 ## How "Off" Works
 
 When you toggle a camera **off**, the tool sets its recording mode to `never`
@@ -69,16 +81,25 @@ and enables a full-frame privacy zone (blacking out the live view):
 
 Toggling **on** restores the original recording mode and removes the privacy zone.
 
-## Cron Safety Net
+## Scheduled Safety Net
 
-The `ensure_all_on.py` script re-enables all cameras across all groups:
+The `ensure_all_on.py` script re-enables all cameras across all groups. Preview
+it before enabling the timer:
 
 ```bash
-# Run every night at 11 PM
-0 23 * * * /opt/unifi-camera-toggle/.venv/bin/python3 /opt/unifi-camera-toggle/ensure_all_on.py >> /var/log/camera-ensure.log 2>&1
+cd /opt/unifi-camera-toggle
+.venv/bin/python3 ensure_all_on.py --dry-run
 ```
 
-Supports `--dry-run` to preview without changes.
+`camera-ensure-all-on.timer` runs the one-shot service every night at 11:00 PM
+in `America/Chicago`, including across daylight-saving transitions. `Persistent`
+causes a missed run to execute after the server returns.
+
+```bash
+sudo systemctl enable --now camera-ensure-all-on.timer
+systemctl list-timers camera-ensure-all-on.timer
+sudo journalctl -u camera-ensure-all-on.service --since today
+```
 
 ## Admin Portal Integration
 
@@ -90,6 +111,9 @@ provides JSON data for portal integration.
 
 - Run on the **management VLAN only** — do not expose to the internet.
 - Credentials are in `config.py` — protect with `chmod 600`.
+- Audit entries are written to `/var/log/unifi-camera-audit.log`; keep that
+  file at mode `0600` when the services share an account. Scheduled safety-job
+  output is retained by journald.
 - The Flask dev server is fine for light internal use; for heavier loads,
   use Gunicorn + nginx with HTTPS.
 

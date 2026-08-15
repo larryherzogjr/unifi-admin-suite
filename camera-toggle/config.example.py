@@ -3,7 +3,7 @@
 # =============================================================================
 
 # Controller connection
-PROTECT_HOST = "protect.se-test.org"   # IP or hostname of your UDM Pro / UNVR / Cloud Key
+PROTECT_HOST = "protect.example.local"  # IP or hostname of your UDM Pro / UNVR / Cloud Key
 PROTECT_USERNAME = "local-admin"
 PROTECT_PASSWORD = "changeme"
 VERIFY_SSL = False                      # Set True only if you've installed a real cert
@@ -38,13 +38,22 @@ DEFAULT_RECORDING_MODE = "always"
 # ALL groups — it is not filtered by group.
 CAMERA_GROUPS = {
     "default": [
-        "Assoc. Pastor",
-        "Dennis Norby",
-        "Nursery",
-        "Sarah Meester",
-        "Youth Room",
+        "Office A",
+        "Office B",
+        "Conference Room",
     ],
-    "dennis": [
-        "Dennis Norby",
+    "facilities": [
+        "Office A",
+        "Office B",
     ]
 }
+
+# Optional UniFi Network lookup for resolving audit-log client IPs to device
+# names. Leave as None to disable, or provide a local controller account.
+UNIFI_NETWORK = None
+# UNIFI_NETWORK = {
+#     "host": "network.example.local",
+#     "username": "local-admin",
+#     "password": "changeme",
+#     "verify_ssl": False,
+# }

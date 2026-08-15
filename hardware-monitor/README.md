@@ -13,6 +13,7 @@ email alerting on device status changes.
 | `alerter.py` | Email alerting with per-device cooldown |
 | `config.py` | API connections, SMTP settings, poll interval, exclusions |
 | `requirements.txt` | Python dependencies |
+| `unifi-monitor.service` | systemd service definition |
 
 ## Data Sources
 
@@ -28,7 +29,9 @@ email alerting on device status changes.
 cd /opt/unifi-monitor
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+cp config.example.py config.py
+chmod 600 config.py
 nano config.py          # Fill in all three API connections + email settings
 python app.py           # → http://your-server:5002
 ```
@@ -39,7 +42,7 @@ Copy `config.example.py` to `config.py` and edit. Key settings:
 
 ```python
 # Protect (UNVR Pro)
-PROTECT_HOST = "protect.se-test.org"
+PROTECT_HOST = "protect.example.local"
 PROTECT_USERNAME = "local-admin"
 PROTECT_PASSWORD = "changeme"
 
@@ -47,7 +50,7 @@ PROTECT_PASSWORD = "changeme"
 ACCESS_TOKEN = "your-bearer-token"
 
 # Network (Cloud Key Gen2+)
-NETWORK_HOST = "10.42.42.7"
+NETWORK_HOST = "network.example.local"
 NETWORK_USERNAME = "local-admin"
 NETWORK_PASSWORD = "changeme"
 

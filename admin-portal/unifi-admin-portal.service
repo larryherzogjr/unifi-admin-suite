@@ -1,6 +1,6 @@
 [Unit]
 Description=UniFi Admin Portal
-After=network-online.target camera-toggle.service door-lock-toggle.service
+After=network-online.target camera-toggle.service door-lock-toggle.service unifi-monitor.service audit-viewer.service
 Wants=network-online.target
 
 [Service]

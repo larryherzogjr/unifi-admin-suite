@@ -1,0 +1,13 @@
+[Unit]
+Description=Ensure all managed UniFi Access doors are locked
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=lherzog
+WorkingDirectory=/opt/unifi-access
+ExecStart=/opt/unifi-access/.venv/bin/python3 /opt/unifi-access/ensure_all_locked.py
+UMask=0077
+StateDirectory=unifi-access
+StateDirectoryMode=0700

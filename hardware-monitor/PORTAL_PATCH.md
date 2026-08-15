@@ -1,3 +1,6 @@
+# Historical note: the Monitor integration described below is already present
+# in this repository. Do not apply this file to the current source.
+#
 # =============================================================================
 # Admin Portal Patch — Add Monitor Tab
 # =============================================================================

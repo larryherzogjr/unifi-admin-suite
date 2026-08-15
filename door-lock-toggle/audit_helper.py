@@ -10,7 +10,7 @@ Includes best-effort device name resolution via:
 
 Each audit entry includes:
   timestamp, action, target, reason, duration_min,
-  client_ip, client_device, client_host, client_ua
+  actor, client_ip, client_device, client_host, client_ua
 """
 
 import json
@@ -20,7 +20,7 @@ import logging
 import threading
 import requests as http_requests
 from datetime import datetime, timedelta
-from flask import request
+from flask import has_request_context, request
 
 log = logging.getLogger("audit")
 
@@ -257,11 +257,24 @@ def resolve_device_name(ip):
     return name
 
 
-def write(action: str, target: str, reason: str = "", duration_min: int = None):
+def write(
+    action: str,
+    target: str,
+    reason: str = "",
+    duration_min: int = None,
+    actor: str = None,
+):
     """Write an audit entry."""
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr) or "unknown"
-    client_ua = request.headers.get("X-Forwarded-User-Agent",
-                request.headers.get("User-Agent", "unknown"))
+    if has_request_context():
+        client_ip = request.headers.get("X-Forwarded-For", request.remote_addr) or "unknown"
+        client_ua = request.headers.get(
+            "X-Forwarded-User-Agent", request.headers.get("User-Agent", "unknown")
+        )
+        actor = actor or "web-ui"
+    else:
+        client_ip = "localhost"
+        client_ua = "system"
+        actor = actor or "system"
 
     client_device = resolve_device_name(client_ip)
 
@@ -277,14 +290,23 @@ def write(action: str, target: str, reason: str = "", duration_min: int = None):
         "target": target,
         "reason": reason or "",
         "duration_min": duration_min,
+        "actor": actor,
         "client_ip": client_ip,
         "client_device": client_device,
         "client_host": client_host,
         "client_ua": client_ua,
     }
 
-    log.info("AUDIT: %s %s by %s [%s] (%s) reason=%r",
-             action, target, client_ip, client_device, client_host, reason)
+    log.info(
+        "AUDIT: %s %s actor=%s by %s [%s] (%s) reason=%r",
+        action,
+        target,
+        actor,
+        client_ip,
+        client_device,
+        client_host,
+        reason,
+    )
 
     if _audit_file:
         try:
