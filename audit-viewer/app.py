@@ -82,64 +82,10 @@ def _load_all_entries(days=None):
 # ── HTML Template ──
 PAGE_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Audit Log Viewer</title><style>
-:root{--bg:#0f1114;--surface:#1a1d23;--border:#2a2d35;--text:#e0e0e0;--muted:#888;--accent:#3b82f6;--danger:#ef4444;--success:#22c55e;--warn:#f59e0b}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:2rem 1rem}
-.container{max-width:900px;margin:0 auto}
-h1{font-size:1.4rem;font-weight:600;margin-bottom:.25rem}
-h1 span{color:var(--accent)}
-.subtitle{color:var(--muted);font-size:.85rem;margin-bottom:1.2rem}
-.controls{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem;align-items:center}
-.search-box{flex:1;min-width:200px;padding:.5rem .8rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.85rem}
-.search-box:focus{border-color:var(--accent);outline:none}
-.filter-btn{padding:.4rem .8rem;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--muted);font-size:.78rem;cursor:pointer;transition:all .15s}
-.filter-btn:hover{background:#252830}
-.filter-btn.active{color:var(--accent);border-color:var(--accent);background:rgba(59,130,246,.08)}
-.stats{font-size:.8rem;color:var(--muted);margin-bottom:.8rem}
-.entry-list{display:flex;flex-direction:column;gap:.4rem}
-.entry-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;transition:border-color .2s}
-.entry-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem}
-.entry-action{display:flex;align-items:center;gap:.5rem}
-.action-icon{font-size:1.1rem}
-.action-label{font-weight:600;font-size:.85rem}
-.entry-target{font-size:.9rem;font-weight:500;color:var(--text)}
-.entry-time{font-size:.75rem;color:var(--muted);white-space:nowrap}
-.entry-details{display:flex;flex-wrap:wrap;gap:.4rem .8rem;margin-top:.4rem;font-size:.75rem;color:var(--muted)}
-.entry-details .label{color:#666}.entry-details .val{color:var(--text)}
-.entry-reason{margin-top:.35rem;font-size:.8rem;color:var(--text);font-style:italic;padding:.3rem .6rem;background:rgba(59,130,246,.05);border-left:2px solid var(--accent);border-radius:0 4px 4px 0}
-.badge-cat{display:inline-block;font-size:.6rem;padding:.1rem .35rem;border-radius:3px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
-.badge-cat.camera{background:rgba(59,130,246,.15);color:var(--accent)}
-.badge-cat.door{background:rgba(245,158,11,.15);color:var(--warn)}
-.empty-state{text-align:center;padding:3rem;color:var(--muted);font-size:.9rem}
-.btn{padding:.4rem .8rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.82rem;cursor:pointer;transition:background .15s}
-.btn:hover{background:#252830}
-.highlight{background:rgba(245,158,11,.25);border-radius:2px;padding:0 1px}
-</style></head><body>
-<div class="container">
-<h1><span>UniFi</span> Audit Log</h1>
-<p class="subtitle">Camera and door action history — read-only</p>
-
-<div class="controls">
-<input type="text" class="search-box" id="search" placeholder="Search by target, reason, IP, hostname..." oninput="filterEntries()">
-<div class="filter-btn active" data-filter="all" onclick="setFilter(this)">All</div>
-<div class="filter-btn" data-filter="camera" onclick="setFilter(this)">Cameras</div>
-<div class="filter-btn" data-filter="door" onclick="setFilter(this)">Doors</div>
-<div style="display:flex;gap:.3rem;align-items:center">
-<div class="filter-btn {{ 'active' if days == 1 else '' }}" onclick="setDays(1)">Today</div>
-<div class="filter-btn {{ 'active' if days == 7 else '' }}" onclick="setDays(7)">7 days</div>
-<div class="filter-btn {{ 'active' if days == 30 else '' }}" onclick="setDays(30)">30 days</div>
-<div class="filter-btn {{ 'active' if days == 0 else '' }}" onclick="setDays(0)">All time</div>
-</div>
-<button class="btn" onclick="location.href=location.pathname+'?days={{ days }}&t='+Date.now()">Refresh</button>
-</div>
-
-<div class="stats" id="stats">{{ entries | length }} entries</div>
+<title>Audit Log Viewer</title><link rel="stylesheet" href="/static/suite.css"></head><body><header class="suite-header"><div><a class="suite-brand" data-portal-link href="/">UniFi Admin Suite</a><h1>Audit Log</h1><p>Camera and door action history · Read only</p></div><a class="btn" data-portal-link href="/">Admin portal</a></header><main class="container"><div class="audit-controls"><label>Search history<input type="search" class="search-box" id="search" placeholder="Device, reason, IP, hostname or action"></label><div class="filter-group" aria-label="Category"><span>Category</span><button class="filter-btn" data-filter="all">All</button><button class="filter-btn" data-filter="camera">Cameras</button><button class="filter-btn" data-filter="door">Doors</button></div><div class="filter-group" aria-label="Time period"><span>Period</span>{% for value, label in [(1,'Today'),(7,'7 days'),(30,'30 days'),(0,'All time')] %}<button class="filter-btn {{ 'active' if days == value else '' }}" aria-pressed="{{ 'true' if days == value else 'false' }}" data-days="{{ value }}">{{ label }}</button>{% endfor %}<button id="auditRefresh">Refresh</button></div></div><div class="stats" id="stats" role="status">{{ entries | length }} entries</div>
 
 <div class="entry-list" id="entry-list">
-{% if entries | length == 0 %}
-<div class="empty-state">No audit entries found for this time period.</div>
-{% endif %}
+
 {% for e in entries %}
 <div class="entry-card" data-category="{{ e._meta.category }}" data-searchable="{{ e.target|lower }} {{ e.reason|lower }} {{ e.client_ip|lower }} {{ e.client_host|lower }} {{ e.action|lower }}">
 <div class="entry-top">
@@ -166,39 +112,10 @@ h1 span{color:var(--accent)}
 </div>
 </div>
 {% endfor %}
-</div>
-</div>
+</div><div class="empty-state" id="noMatches" hidden>No matching entries in this period. <button id="clearAudit">Clear filters</button></div>
+</main>
 
-<script>
-let activeFilter = 'all';
-
-function setFilter(el) {
-  document.querySelectorAll('.filter-btn[data-filter]').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  activeFilter = el.dataset.filter;
-  filterEntries();
-}
-
-function setDays(d) {
-  location.href = location.pathname + '?days=' + d;
-}
-
-function filterEntries() {
-  const query = document.getElementById('search').value.toLowerCase();
-  const cards = document.querySelectorAll('.entry-card');
-  let shown = 0;
-  cards.forEach(card => {
-    const cat = card.dataset.category;
-    const text = card.dataset.searchable;
-    const matchCat = activeFilter === 'all' || cat === activeFilter;
-    const matchSearch = !query || text.includes(query);
-    const visible = matchCat && matchSearch;
-    card.style.display = visible ? '' : 'none';
-    if (visible) shown++;
-  });
-  document.getElementById('stats').textContent = shown + ' of {{ entries | length }} entries';
-}
-</script>
+<script src="/static/audit.js"></script>
 </body></html>"""
 
 def _shorten_ua(ua):

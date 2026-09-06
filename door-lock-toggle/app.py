@@ -308,122 +308,20 @@ def _authorize_button_door(door_id):
     return True
 
 # ── HTML Template ──
-PAGE_TEMPLATE = r"""<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Door Lock Toggle</title><style>
-:root{--bg:#0f1114;--surface:#1a1d23;--border:#2a2d35;--text:#e0e0e0;--muted:#888;--accent:#3b82f6;--danger:#ef4444;--success:#22c55e;--warn:#f59e0b}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:2rem 1rem}
-.container{max-width:720px;margin:0 auto}
-h1{font-size:1.4rem;font-weight:600;margin-bottom:.25rem}
-.subtitle{color:var(--muted);font-size:.85rem;margin-bottom:1.5rem}
-.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:1rem;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.85rem;cursor:pointer;transition:background .15s}
-.btn:hover{background:#252830}.btn.success{border-color:var(--success);color:var(--success)}.btn.success:hover{background:rgba(34,197,94,.12)}
-.door-list{display:flex;flex-direction:column;gap:.5rem}
-.door-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.9rem 1.1rem;transition:border-color .2s}
-.door-card.unlocked{border-left:3px solid var(--warn)}.door-card.locked{border-left:3px solid var(--success)}
-.door-top{display:flex;align-items:center;justify-content:space-between}
-.door-info{flex:1;min-width:0}.door-name{font-weight:600;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.door-meta{font-size:.75rem;color:var(--muted);margin-top:.15rem}
-.toggle-wrap{flex-shrink:0;margin-left:1rem;display:flex;align-items:center;gap:.5rem}
-.toggle-label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;min-width:60px;text-align:right}
-.switch{position:relative;width:44px;height:24px}.switch input{opacity:0;width:0;height:0}
-.slider{position:absolute;inset:0;background:var(--warn);border-radius:24px;cursor:pointer;transition:background .25s}
-.slider::before{content:"";position:absolute;left:3px;bottom:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .25s}
-.switch input:checked+.slider{background:var(--success)}.switch input:checked+.slider::before{transform:translateX(20px)}
-.switch input:disabled+.slider{opacity:.4;cursor:not-allowed}
-.badge{display:inline-block;font-size:.65rem;padding:.1rem .4rem;border-radius:3px;font-weight:600;text-transform:uppercase}
-.badge.locked{background:rgba(34,197,94,.15);color:var(--success)}.badge.unlocked{background:rgba(245,158,11,.15);color:var(--warn)}
-.advanced-row{display:none;align-items:center;gap:.6rem;margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--border);flex-wrap:wrap}
-.advanced-row.show{display:flex}
-.adv-label{font-size:.75rem;color:var(--muted)}.adv-checkbox{cursor:pointer;accent-color:var(--accent)}
-.time-select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:.3rem .5rem;font-size:.8rem}
-.time-select:focus{border-color:var(--accent);outline:none}
-.btn-timed{padding:.3rem .8rem;font-size:.78rem;border:1px solid var(--accent);border-radius:5px;background:rgba(59,130,246,.1);color:var(--accent);cursor:pointer;transition:background .15s}
-.btn-timed:hover{background:rgba(59,130,246,.2)}
-.timer-display{display:none;align-items:center;gap:.5rem;margin-top:.6rem;padding:.5rem .8rem;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:6px}
-.timer-display.show{display:flex}.timer-icon{font-size:1rem}.timer-text{font-size:.8rem;color:var(--accent)}
-.timer-countdown{font-size:.85rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
-.btn-cancel-timer{margin-left:auto;padding:.2rem .6rem;font-size:.72rem;border:1px solid var(--danger);border-radius:4px;background:transparent;color:var(--danger);cursor:pointer}
-.btn-cancel-timer:hover{background:rgba(239,68,68,.1)}
-.toast{position:fixed;top:1rem;right:1rem;padding:.7rem 1.2rem;border-radius:6px;font-size:.85rem;font-weight:500;color:#fff;opacity:0;transform:translateY(-10px);transition:opacity .3s,transform .3s;z-index:99;pointer-events:none}
-.toast.show{opacity:1;transform:translateY(0)}.toast.ok{background:var(--success)}.toast.err{background:var(--danger)}.toast.warn{background:var(--warn);color:#000}
-.error-box{padding:1.5rem;background:rgba(239,68,68,.08);border:1px solid var(--danger);border-radius:8px;color:var(--danger);font-size:.9rem}
-</style></head><body>
-<div class="container">
-<h1>Door Lock Toggle</h1>
-<p class="subtitle">{{ host }}:{{ port }} &mdash; Unlock doors temporarily, lock when done.</p>
-{% if error %}<div class="error-box">{{ error }}</div>{% else %}
-<div class="topbar">
-<span style="font-size:.8rem;color:var(--muted)">{{ doors|length }} door{{ 's' if doors|length != 1 }} &middot; {{ doors|selectattr('isUnlocked')|list|length }} unlocked</span>
-<div><button class="btn success" onclick="lockAll()">Lock All</button> <button class="btn" onclick="location.href=location.pathname+'?t='+Date.now()+(location.hash||'')">Refresh</button></div>
-</div>
-<div class="door-list">
+PAGE_TEMPLATE = r"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Doors · UniFi Admin Suite</title><link rel="stylesheet" href="/static/suite.css"></head><body><header class="suite-header"><div><a class="suite-brand" data-portal-link href="/">UniFi Admin Suite</a><h1>Doors</h1><p>Manage locks and temporary access.</p></div><a class="btn" data-portal-link href="/">Admin portal</a></header><main class="content"><section class="control-list" data-kind="door" data-base="/api">
+<div class="freshness" role="status">Checking for updates…</div>
+<div class="error-box service-error" {% if not error %}hidden{% endif %}>Door service unavailable. Check the connection and retry.</div>
+<div class="section-bar"><span class="section-summary"></span><div><button data-bulk="lock-all">Lock all doors</button> <button data-refresh>Refresh</button></div></div>
+<div class="list-tools"><label>Search doors<input type="search" data-search placeholder="Device name or location"></label><label>Show<select data-filter><option value="all">All doors</option><option value="attention">Unlocked</option><option value="timers">Active timers</option></select></label></div>
+<div class="item-list">
 {% for door in doors %}
-<div class="door-card {{ 'unlocked' if door.isUnlocked else 'locked' }}" id="card-{{ door.id }}">
-<div class="door-top">
-<div class="door-info"><div class="door-name">{{ door.name }}</div>
-<div class="door-meta">{% if door.type %}{{ door.type }} &middot; {% endif %}<span class="badge {{ 'unlocked' if door.isUnlocked else 'locked' }}" id="badge-{{ door.id }}">{{ 'UNLOCKED' if door.isUnlocked else 'LOCKED' }}</span> &middot; Rule: <strong>{{ door.lockRule }}</strong></div></div>
-<div class="toggle-wrap"><span class="toggle-label" id="label-{{ door.id }}">{{ 'unlocked' if door.isUnlocked else 'locked' }}</span>
-<label class="switch"><input type="checkbox" id="toggle-{{ door.id }}" data-id="{{ door.id }}" data-name="{{ door.name }}" {{ '' if door.isUnlocked else 'checked' }} onchange="toggleDoor(this)"><span class="slider"></span></label></div></div>
-<div class="advanced-row {{ 'show' if not door.isUnlocked else '' }}" id="adv-{{ door.id }}">
-<label class="adv-label" style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="checkbox" class="adv-checkbox" id="adv-check-{{ door.id }}" onchange="toggleAdvanced('{{ door.id }}')"> Advanced</label>
-<div id="adv-options-{{ door.id }}" style="display:none;align-items:center;gap:.5rem;flex-wrap:wrap">
-<label class="adv-label">Unlock for:</label>
-<select class="time-select" id="time-{{ door.id }}" onchange="timeChanged(this,'{{ door.id }}')">
-<option value="5">5 min</option><option value="15" selected>15 min</option><option value="30">30 min</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="custom">Custom...</option></select>
-<input type="number" id="custom-time-{{ door.id }}" min="1" max="480" placeholder="min" style="display:none;width:60px" class="time-select">
-<input type="text" id="reason-{{ door.id }}" class="time-select" placeholder="Reason (optional)" style="flex:1;min-width:120px">
-<button class="btn-timed" onclick="timedUnlock('{{ door.id }}','{{ door.name }}')">&#9201; Timed Unlock</button>
-</div></div>
-<div class="timer-display" id="timer-{{ door.id }}"><span class="timer-icon">&#9201;</span><span class="timer-text">Auto-locks in</span>
-<span class="timer-countdown" id="countdown-{{ door.id }}">--:--</span>
-<button class="btn-cancel-timer" onclick="cancelTimer('{{ door.id }}')">Cancel &amp; Lock</button></div>
-</div>
-{% endfor %}
-</div>{% endif %}
-</div>
-<div class="toast" id="toast"></div>
-<script>
-function toast(m,t){const e=document.getElementById('toast');e.textContent=m;e.className='toast show '+(t||'ok');setTimeout(()=>e.classList.remove('show'),3000)}
-function toggleAdvanced(id){const c=document.getElementById('adv-check-'+id).checked;document.getElementById('adv-options-'+id).style.display=c?'flex':'none'}
-function timeChanged(sel,id){document.getElementById('custom-time-'+id).style.display=sel.value==='custom'?'inline-block':'none'}
-async function toggleDoor(el){const id=el.dataset.id,name=el.dataset.name,shouldLock=el.checked;
-const label=document.getElementById('label-'+id);
-el.disabled=true;label.textContent='...';
-try{const r=await fetch('/api/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({door_id:id,lock:shouldLock,reason:document.getElementById('reason-'+id)?document.getElementById('reason-'+id).value:''})});
-const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
-const u=!shouldLock;
-toast(name+' \u2192 '+(u?'UNLOCKED':'LOCKED'),'ok');
-setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),1200)}
-catch(e){el.checked=!shouldLock;label.textContent=shouldLock?'unlocked':'locked';toast('Error: '+e.message,'err');el.disabled=false}}
-async function timedUnlock(id,name){const sel=document.getElementById('time-'+id);let min=parseInt(sel.value);
-if(sel.value==='custom'){min=parseInt(document.getElementById('custom-time-'+id).value);if(!min||min<1){toast('Enter valid minutes','err');return}}
-try{const r=await fetch('/api/timed-unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({door_id:id,minutes:min,reason:document.getElementById('reason-'+id)?document.getElementById('reason-'+id).value:''})});
-const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
-const card=document.getElementById('card-'+id),label=document.getElementById('label-'+id),badge=document.getElementById('badge-'+id),toggle=document.getElementById('toggle-'+id),adv=document.getElementById('adv-'+id);
-card.className='door-card unlocked';label.textContent='unlocked';badge.textContent='UNLOCKED';badge.className='badge unlocked';toggle.checked=false;adv.classList.remove('show');
-startCountdown(id,min*60);toast(name+' \u2192 UNLOCKED for '+min+' min','ok')}
-catch(e){toast('Error: '+e.message,'err')}}
-const cdi={};
-function startCountdown(id,sec){const td=document.getElementById('timer-'+id),cd=document.getElementById('countdown-'+id);td.classList.add('show');
-if(cdi[id])clearInterval(cdi[id]);let rem=sec;
-function u(){if(rem<=0){clearInterval(cdi[id]);td.classList.remove('show');setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),1000);return}
-const h=Math.floor(rem/3600),m=Math.floor((rem%3600)/60),s=rem%60;
-cd.textContent=h>0?h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'):m+':'+String(s).padStart(2,'0');rem--}
-u();cdi[id]=setInterval(u,1000)}
-async function cancelTimer(id){try{const r=await fetch('/api/cancel-timer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({door_id:id,reason:'Timer cancelled'})});
-const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
-if(cdi[id])clearInterval(cdi[id]);document.getElementById('timer-'+id).classList.remove('show');
-toast(d.name+' \u2192 timer cancelled, LOCKED','ok');setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),500)}
-catch(e){toast('Error: '+e.message,'err')}}
-async function lockAll(){if(!confirm('Lock ALL doors (and cancel all timers)?'))return;
-try{const r=await fetch('/api/lock-all',{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.error||'API error');
-toast('Locked '+d.changed+' door(s)','ok');setTimeout(()=>location.href=location.pathname+'?t='+Date.now()+(location.hash||''),800)}catch(e){toast('Error: '+e.message,'err')}}
-(async function(){try{const r=await fetch('/api/timers');const d=await r.json();
-for(const[id,info]of Object.entries(d)){if(info.remaining_sec>0)startCountdown(id,info.remaining_sec)}}catch(e){}})();
-</script></body></html>"""
+<article class="item-card {{ 'unlocked' if door.isUnlocked else 'locked' }}" data-device="{{ door.id }}" data-name="{{ door.name }}" data-active="{{ 'false' if door.isUnlocked else 'true' }}" data-offline="false">
+<div class="item-top"><div class="item-info"><h2 class="item-name">{{ door.name }}</h2><div class="state-line"><span class="badge {{ 'unlocked' if door.isUnlocked else 'locked' }}">{{ 'Unlocked' if door.isUnlocked else 'Locked' }}</span></div></div>
+<div class="device-actions"><button class="primary" data-disclose aria-expanded="false">Unlock for…</button><button data-toggle>{{ 'Lock now' if door.isUnlocked else 'Unlock' }}</button></div></div>
+<details class="device-details-toggle"><summary>Device details</summary><div class="item-meta">Model: {{ door.type or "Unknown" }} · Controller rule: {{ door.lockRule }}</div></details>
+<div class="timed-options" hidden><form><label>Duration<select class="time-select" data-duration><option value="5">5 minutes</option><option value="15" selected>15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="custom">Custom</option></select></label><label data-custom-label hidden>Minutes (1–480)<input class="time-select" data-custom type="number" min="1" max="480" step="1" value="15"></label><label class="reason">Reason (optional)<input class="time-select" data-reason maxlength="500" placeholder="Add context for the audit log"></label><button class="primary" type="submit">Unlock temporarily</button></form><p class="time-preview"></p></div>
+<div class="timer-display" hidden><span data-countdown></span><button data-cancel>Lock now</button></div><div class="card-feedback" role="status"></div>
+</article>{% endfor %}</div><div class="empty-state" hidden>No matching doors. <button data-clear>Clear filters</button></div></section></main><div id="toast" class="toast" role="status"></div><script src="/static/controls.js"></script></body></html>"""
 
 # ── Routes ──
 @app.route("/")

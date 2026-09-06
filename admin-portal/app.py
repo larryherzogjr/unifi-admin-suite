@@ -71,430 +71,78 @@ PAGE_TEMPLATE = r"""
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UniFi Admin Portal</title>
-<style>
-  :root {
-    --bg:        #0b0d10;
-    --surface:   #14171c;
-    --card:      #1a1d23;
-    --border:    #2a2d35;
-    --text:      #e0e0e0;
-    --muted:     #888;
-    --accent:    #3b82f6;
-    --danger:    #ef4444;
-    --success:   #22c55e;
-    --warn:      #f59e0b;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
-
-  /* ── Header ── */
-  .header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 1.2rem 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: .5rem;
-  }
-  .header h1 {
-    font-size: 1.2rem;
-    font-weight: 700;
-    letter-spacing: .02em;
-  }
-  .header h1 span { color: var(--accent); }
-  .header-meta {
-    font-size: .75rem;
-    color: var(--muted);
-  }
-
-  /* ── Tabs ── */
-  .tabs {
-    display: flex;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 0 2rem;
-  }
-  .tab {
-    padding: .8rem 1.5rem;
-    font-size: .85rem;
-    font-weight: 600;
-    color: var(--muted);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: color .2s, border-color .2s;
-    user-select: none;
-  }
-  .tab:hover { color: var(--text); }
-  .tab.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-  }
-  .tab .count {
-    display: inline-block;
-    font-size: .7rem;
-    background: var(--border);
-    color: var(--text);
-    padding: .1rem .45rem;
-    border-radius: 10px;
-    margin-left: .4rem;
-    font-weight: 500;
-  }
-  .tab .count.alert {
-    background: rgba(239,68,68,.2);
-    color: var(--danger);
-  }
-
-  /* ── Content ── */
-  .content { padding: 1.5rem 2rem; max-width: 800px; margin: 0 auto; }
-  .panel { display: none; }
-  .panel.active { display: block; }
-
-  .section-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-    gap: .5rem;
-  }
-  .section-summary {
-    font-size: .8rem;
-    color: var(--muted);
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: .4rem;
-    padding: .45rem .9rem;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--card);
-    color: var(--text);
-    font-size: .8rem;
-    cursor: pointer;
-    transition: background .15s;
-  }
-  .btn:hover { background: #252830; }
-  .btn.success { border-color: var(--success); color: var(--success); }
-  .btn.success:hover { background: rgba(34,197,94,.1); }
-
-  /* ── Item cards ── */
-  .item-list { display: flex; flex-direction: column; gap: .5rem; }
-
-  .item-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: .85rem 1rem;
-    transition: border-color .2s;
-  }
-  .item-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .item-card.off      { border-left: 3px solid var(--danger); }
-  .item-card.on       { border-left: 3px solid var(--success); }
-  .item-card.unlocked { border-left: 3px solid var(--warn); }
-  .item-card.locked   { border-left: 3px solid var(--success); }
-
-  .item-info { flex: 1; min-width: 0; }
-  .item-name {
-    font-weight: 600;
-    font-size: .9rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .item-meta {
-    font-size: .72rem;
-    color: var(--muted);
-    margin-top: .15rem;
-  }
-
-  .toggle-wrap { flex-shrink: 0; margin-left: 1rem; display: flex; align-items: center; gap: .5rem; }
-  .toggle-label {
-    font-size: .7rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    min-width: 55px;
-    text-align: right;
-  }
-
-  .switch { position: relative; width: 40px; height: 22px; }
-  .switch input { opacity: 0; width: 0; height: 0; }
-  .slider {
-    position: absolute; inset: 0;
-    border-radius: 22px;
-    cursor: pointer;
-    transition: background .25s;
-  }
-  .slider::before {
-    content: "";
-    position: absolute;
-    left: 3px; bottom: 3px;
-    width: 16px; height: 16px;
-    background: #fff;
-    border-radius: 50%;
-    transition: transform .25s;
-  }
-  .switch input:checked + .slider::before { transform: translateX(18px); }
-  .switch input:disabled + .slider { opacity: .4; cursor: not-allowed; }
-
-  /* Camera: off=red slider, on=green */
-  .cam-slider { background: var(--danger); }
-  .switch input:checked + .cam-slider { background: var(--success); }
-
-  /* Door: unlocked=amber slider, locked=green */
-  .door-slider { background: var(--warn); }
-  .switch input:checked + .door-slider { background: var(--success); }
-
-  .badge {
-    display: inline-block;
-    font-size: .6rem;
-    padding: .1rem .35rem;
-    border-radius: 3px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .03em;
-  }
-  .badge.connected    { background: rgba(34,197,94,.15);  color: var(--success); }
-  .badge.disconnected { background: rgba(239,68,68,.15);  color: var(--danger); }
-  .badge.locked       { background: rgba(34,197,94,.15);  color: var(--success); }
-  .badge.unlocked     { background: rgba(245,158,11,.15); color: var(--warn); }
-
-  /* ── Advanced / Timed Unlock ── */
-  .advanced-row{display:none;align-items:center;gap:.6rem;margin-top:.7rem;padding-top:.7rem;border-top:1px solid var(--border);flex-wrap:wrap}
-  .advanced-row.show{display:flex}
-  .adv-label{font-size:.72rem;color:var(--muted)}.adv-checkbox{cursor:pointer;accent-color:var(--accent)}
-  .time-select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:.25rem .4rem;font-size:.78rem}
-  .time-select:focus{border-color:var(--accent);outline:none}
-  .btn-timed{padding:.25rem .7rem;font-size:.75rem;border:1px solid var(--accent);border-radius:5px;background:rgba(59,130,246,.1);color:var(--accent);cursor:pointer;transition:background .15s}
-  .btn-timed:hover{background:rgba(59,130,246,.2)}
-  .timer-display{display:none;align-items:center;gap:.5rem;margin-top:.6rem;padding:.45rem .7rem;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:6px}
-  .timer-display.show{display:flex}.timer-icon{font-size:.9rem}.timer-text{font-size:.75rem;color:var(--accent)}
-  .timer-countdown{font-size:.8rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums}
-  .btn-cancel-timer{margin-left:auto;padding:.2rem .5rem;font-size:.7rem;border:1px solid var(--danger);border-radius:4px;background:transparent;color:var(--danger);cursor:pointer}
-  .btn-cancel-timer:hover{background:rgba(239,68,68,.1)}
-
-  /* ── Toast ── */
-  .toast {
-    position: fixed;
-    top: 1rem; right: 1rem;
-    padding: .65rem 1.1rem;
-    border-radius: 6px;
-    font-size: .82rem;
-    font-weight: 500;
-    color: #fff;
-    opacity: 0;
-    transform: translateY(-10px);
-    transition: opacity .3s, transform .3s;
-    z-index: 99;
-    pointer-events: none;
-  }
-  .toast.show { opacity: 1; transform: translateY(0); }
-  .toast.ok   { background: var(--success); }
-  .toast.err  { background: var(--danger); }
-
-  .error-box {
-    padding: 1.2rem;
-    background: rgba(239,68,68,.08);
-    border: 1px solid var(--danger);
-    border-radius: 8px;
-    color: var(--danger);
-    font-size: .85rem;
-    margin-bottom: 1rem;
-  }
-
-  .empty-state {
-    text-align: center;
-    padding: 3rem;
-    color: var(--muted);
-    font-size: .9rem;
-  }
-</style>
+<link rel="stylesheet" href="/static/suite.css">
 </head>
 <body>
 
 <div class="header">
-  <h1><span>UniFi</span> Admin Portal</h1>
+  <h1><span>UniFi</span> Admin Suite</h1>
   <div class="header-meta">Physical Security Management</div>
 </div>
 
-<div class="tabs">
-  <div class="tab active" data-panel="cameras" onclick="switchTab(this)">
+<nav class="tabs" role="tablist" aria-label="Apps">
+  <button class="tab active" data-panel="cameras" role="tab" aria-controls="panel-cameras" aria-selected="true">
     Cameras
     {% if cam_off_count %}
-      <span class="count alert">{{ cam_off_count }} off</span>
+      <span class="count alert">{{ cam_off_count }} privacy</span>
     {% else %}
       <span class="count">{{ cameras | length }}</span>
     {% endif %}
-  </div>
-  <div class="tab" data-panel="doors" onclick="switchTab(this)">
+  </button>
+  <button class="tab" data-panel="doors" role="tab" aria-controls="panel-doors" aria-selected="false">
     Doors
     {% if door_unlocked_count %}
-      <span class="count alert">{{ door_unlocked_count }} open</span>
+      <span class="count alert">{{ door_unlocked_count }} unlocked</span>
     {% else %}
       <span class="count">{{ doors | length }}</span>
     {% endif %}
-  </div>
-  <div class="tab" data-panel="monitor" onclick="switchTab(this)">
+  </button>
+  <button class="tab" data-panel="monitor" role="tab" aria-controls="panel-monitor" aria-selected="false">
     Monitor
     {% if mon_offline_count %}
-      <span class="count alert">{{ mon_offline_count }} down</span>
+      <span class="count alert">{{ mon_offline_count }} offline</span>
     {% else %}
       <span class="count">{{ monitors | length }}</span>
     {% endif %}
-  </div>
-  <div class="tab" data-panel="audit" onclick="switchTab(this)">
+  </button>
+  <button class="tab" data-panel="audit" role="tab" aria-controls="panel-audit" aria-selected="false">
     Audit
     <span class="count">{{ audit_today_count }}</span>
-  </div>
-</div>
+  </button>
+</nav>
 
-<div class="content">
+<main class="content">
 
-  <!-- ════ CAMERAS PANEL ════ -->
-  <div class="panel active" id="panel-cameras">
-    {% if cam_error %}
-      <div class="error-box">Camera service unavailable: {{ cam_error }}</div>
-    {% elif cameras | length == 0 %}
-      <div class="empty-state">No cameras found.</div>
-    {% else %}
-      <div class="section-bar">
-        <span class="section-summary">
-          {{ cameras | length }} camera{{ 's' if cameras | length != 1 }}
-          &middot; {{ cam_off_count }} off
-        </span>
-        <div>
-          <button class="btn success" onclick="enableAllCameras()">Enable All</button>
-          <button class="btn" onclick="location.href=location.pathname+'?t='+Date.now()+(location.hash||'')">Refresh</button>
-        </div>
-      </div>
-      <div class="item-list">
-      {% for cam in cameras %}
-        <div class="item-card {{ 'off' if cam.isOff else 'on' }}" id="cam-card-{{ cam.id }}">
-          <div class="item-top">
-          <div class="item-info">
-            <div class="item-name">{{ cam.name }}</div>
-            <div class="item-meta">
-              {{ cam.type }}
-              &middot;
-              <span class="badge {{ 'connected' if cam.state == 'CONNECTED' else 'disconnected' }}">{{ cam.state }}</span>
-              &middot; Mode: <strong>{{ cam.recordingMode }}</strong>
-              {% if cam.host %}&middot; {{ cam.host }}{% endif %}
-            </div>
-          </div>
-          <div class="toggle-wrap">
-            <span class="toggle-label" id="cam-label-{{ cam.id }}">{{ 'off' if cam.isOff else 'on' }}</span>
-            <label class="switch">
-              <input type="checkbox"
-                     id="cam-toggle-{{ cam.id }}"
-                     data-id="{{ cam.id }}"
-                     data-name="{{ cam.name }}"
-                     {{ '' if cam.isOff else 'checked' }}
-                     onchange="toggleCamera(this)">
-              <span class="slider cam-slider"></span>
-            </label>
-          </div>
-          </div>
-          <div class="advanced-row {{ 'show' if not cam.isOff else '' }}" id="cam-adv-{{ cam.id }}">
-            <label class="adv-label" style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="checkbox" class="adv-checkbox" id="cam-adv-check-{{ cam.id }}" onchange="toggleCamAdvanced('{{ cam.id }}')"> Advanced</label>
-            <div id="cam-adv-options-{{ cam.id }}" style="display:none;align-items:center;gap:.5rem;flex-wrap:wrap">
-              <label class="adv-label">Privacy for:</label>
-              <select class="time-select" id="cam-time-{{ cam.id }}" onchange="camTimeChanged(this,'{{ cam.id }}')">
-                <option value="5">5 min</option><option value="15" selected>15 min</option><option value="30">30 min</option><option value="60">1 hr</option><option value="120">2 hr</option><option value="custom">Custom...</option></select>
-              <input type="number" id="cam-custom-time-{{ cam.id }}" min="1" max="480" placeholder="min" style="display:none;width:55px" class="time-select">
-              <input type="text" id="cam-reason-{{ cam.id }}" class="time-select" placeholder="Reason (optional)" style="flex:1;min-width:120px">
-              <button class="btn-timed" onclick="timedOffCam('{{ cam.id }}','{{ cam.name }}')">&#9201; Timed Privacy</button>
-            </div>
-          </div>
-          <div class="timer-display" id="cam-timer-{{ cam.id }}"><span class="timer-icon">&#9201;</span><span class="timer-text">Auto-enables in</span>
-            <span class="timer-countdown" id="cam-countdown-{{ cam.id }}">--:--</span>
-            <button class="btn-cancel-timer" onclick="cancelCamTimer('{{ cam.id }}')">Cancel &amp; Enable</button>
-          </div>
-        </div>
-      {% endfor %}
-      </div>
-    {% endif %}
-  </div>
-
-  <!-- ════ DOORS PANEL ════ -->
-  <div class="panel" id="panel-doors">
-    {% if door_error %}
-      <div class="error-box">Door service unavailable: {{ door_error }}</div>
-    {% elif doors | length == 0 %}
-      <div class="empty-state">No doors found.</div>
-    {% else %}
-      <div class="section-bar">
-        <span class="section-summary">
-          {{ doors | length }} door{{ 's' if doors | length != 1 }}
-          &middot; {{ door_unlocked_count }} unlocked
-        </span>
-        <div>
-          <button class="btn success" onclick="lockAllDoors()">Lock All</button>
-          <button class="btn" onclick="location.href=location.pathname+'?t='+Date.now()+(location.hash||'')">Refresh</button>
-        </div>
-      </div>
-      <div class="item-list">
-      {% for door in doors %}
-        <div class="item-card {{ 'unlocked' if door.isUnlocked else 'locked' }}" id="door-card-{{ door.id }}">
-          <div class="item-top">
-          <div class="item-info">
-            <div class="item-name">{{ door.name }}</div>
-            <div class="item-meta">
-              {% if door.type %}{{ door.type }} &middot;{% endif %}
-              <span class="badge {{ 'unlocked' if door.isUnlocked else 'locked' }}" id="door-badge-{{ door.id }}">
-                {{ 'UNLOCKED' if door.isUnlocked else 'LOCKED' }}
-              </span>
-              &middot; Rule: <strong>{{ door.lockRule }}</strong>
-            </div>
-          </div>
-          <div class="toggle-wrap">
-            <span class="toggle-label" id="door-label-{{ door.id }}">{{ 'unlocked' if door.isUnlocked else 'locked' }}</span>
-            <label class="switch">
-              <input type="checkbox"
-                     id="door-toggle-{{ door.id }}"
-                     data-id="{{ door.id }}"
-                     data-name="{{ door.name }}"
-                     {{ '' if door.isUnlocked else 'checked' }}
-                     onchange="toggleDoor(this)">
-              <span class="slider door-slider"></span>
-            </label>
-          </div>
-          </div>
-          <div class="advanced-row {{ 'show' if not door.isUnlocked else '' }}" id="door-adv-{{ door.id }}">
-            <label class="adv-label" style="display:flex;align-items:center;gap:.4rem;cursor:pointer"><input type="checkbox" class="adv-checkbox" id="door-adv-check-{{ door.id }}" onchange="toggleDoorAdvanced('{{ door.id }}')"> Advanced</label>
-            <div id="door-adv-options-{{ door.id }}" style="display:none;align-items:center;gap:.5rem;flex-wrap:wrap">
-              <label class="adv-label">Unlock for:</label>
-              <select class="time-select" id="door-time-{{ door.id }}" onchange="doorTimeChanged(this,'{{ door.id }}')">
-                <option value="5">5 min</option><option value="15" selected>15 min</option><option value="30">30 min</option><option value="60">1 hr</option><option value="120">2 hr</option><option value="custom">Custom...</option></select>
-              <input type="number" id="door-custom-time-{{ door.id }}" min="1" max="480" placeholder="min" style="display:none;width:55px" class="time-select">
-              <input type="text" id="door-reason-{{ door.id }}" class="time-select" placeholder="Reason (optional)" style="flex:1;min-width:120px">
-              <button class="btn-timed" onclick="timedUnlockDoor('{{ door.id }}','{{ door.name }}')">&#9201; Timed Unlock</button>
-            </div>
-          </div>
-          <div class="timer-display" id="door-timer-{{ door.id }}"><span class="timer-icon">&#9201;</span><span class="timer-text">Auto-locks in</span>
-            <span class="timer-countdown" id="door-countdown-{{ door.id }}">--:--</span>
-            <button class="btn-cancel-timer" onclick="cancelDoorTimer('{{ door.id }}')">Cancel &amp; Lock</button>
-          </div>
-        </div>
-      {% endfor %}
-      </div>
-    {% endif %}
-  </div>
-
+<div class="panel active" id="panel-cameras"><section class="control-list" data-kind="camera" data-base="/api/cameras">
+<div class="freshness" role="status">Checking for updates…</div>
+<div class="error-box service-error" {% if not cam_error %}hidden{% endif %}>Camera service unavailable. Check the connection and retry.</div>
+<div class="section-bar"><span class="section-summary"></span><div><button data-bulk="enable-all">Enable all cameras</button> <button data-refresh>Refresh</button></div></div>
+<div class="list-tools"><label>Search cameras<input type="search" data-search placeholder="Device name or location"></label><label>Show<select data-filter><option value="all">All cameras</option><option value="attention">Privacy active</option><option value="offline">Offline</option><option value="timers">Active timers</option></select></label></div>
+<div class="item-list">
+{% for cam in cameras %}
+<article class="item-card {{ 'off' if cam.isOff else 'on' }}" data-device="{{ cam.id }}" data-name="{{ cam.name }}" data-active="{{ 'false' if cam.isOff else 'true' }}" data-offline="{{ 'true' if cam.state != 'CONNECTED' else 'false' }}">
+<div class="item-top"><div class="item-info"><h2 class="item-name">{{ cam.name }}</h2><div class="state-line"><span class="badge {{ 'privacy' if cam.isOff else 'connected' }}">{{ 'Privacy active' if cam.isOff else 'Recording enabled' }}</span>{% if cam.state != "CONNECTED" %}<span class="badge disconnected">Offline</span>{% else %}<span class="badge connected">Connected</span>{% endif %}</div></div>
+<div class="device-actions"><button class="primary" data-disclose aria-expanded="false">Privacy for…</button><button data-toggle>{{ 'Enable recording' if cam.isOff else 'Pause recording' }}</button></div></div>
+<details class="device-details-toggle"><summary>Device details</summary><div class="item-meta">Model: {{ cam.type }} · Recording mode: {{ cam.recordingMode }}{% if cam.host %} · IP: {{ cam.host }}{% endif %}</div></details>
+<div class="timed-options" hidden><form><label>Duration<select class="time-select" data-duration><option value="5">5 minutes</option><option value="15" selected>15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="custom">Custom</option></select></label><label data-custom-label hidden>Minutes (1–480)<input class="time-select" data-custom type="number" min="1" max="480" step="1" value="15"></label><label class="reason">Reason (optional)<input class="time-select" data-reason maxlength="500" placeholder="Add context for the audit log"></label><button class="primary" type="submit">Start privacy</button></form><p class="time-preview"></p></div>
+<div class="timer-display" hidden><span data-countdown></span><button data-cancel>Enable recording now</button></div><div class="card-feedback" role="status"></div>
+</article>{% endfor %}</div><div class="empty-state" hidden>No matching cameras. <button data-clear>Clear filters</button></div></section></div>
+<div class="panel " id="panel-doors"><section class="control-list" data-kind="door" data-base="/api/doors">
+<div class="freshness" role="status">Checking for updates…</div>
+<div class="error-box service-error" {% if not door_error %}hidden{% endif %}>Door service unavailable. Check the connection and retry.</div>
+<div class="section-bar"><span class="section-summary"></span><div><button data-bulk="lock-all">Lock all doors</button> <button data-refresh>Refresh</button></div></div>
+<div class="list-tools"><label>Search doors<input type="search" data-search placeholder="Device name or location"></label><label>Show<select data-filter><option value="all">All doors</option><option value="attention">Unlocked</option><option value="timers">Active timers</option></select></label></div>
+<div class="item-list">
+{% for door in doors %}
+<article class="item-card {{ 'unlocked' if door.isUnlocked else 'locked' }}" data-device="{{ door.id }}" data-name="{{ door.name }}" data-active="{{ 'false' if door.isUnlocked else 'true' }}" data-offline="false">
+<div class="item-top"><div class="item-info"><h2 class="item-name">{{ door.name }}</h2><div class="state-line"><span class="badge {{ 'unlocked' if door.isUnlocked else 'locked' }}">{{ 'Unlocked' if door.isUnlocked else 'Locked' }}</span></div></div>
+<div class="device-actions"><button class="primary" data-disclose aria-expanded="false">Unlock for…</button><button data-toggle>{{ 'Lock now' if door.isUnlocked else 'Unlock' }}</button></div></div>
+<details class="device-details-toggle"><summary>Device details</summary><div class="item-meta">Model: {{ door.type or "Unknown" }} · Controller rule: {{ door.lockRule }}</div></details>
+<div class="timed-options" hidden><form><label>Duration<select class="time-select" data-duration><option value="5">5 minutes</option><option value="15" selected>15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="custom">Custom</option></select></label><label data-custom-label hidden>Minutes (1–480)<input class="time-select" data-custom type="number" min="1" max="480" step="1" value="15"></label><label class="reason">Reason (optional)<input class="time-select" data-reason maxlength="500" placeholder="Add context for the audit log"></label><button class="primary" type="submit">Unlock temporarily</button></form><p class="time-preview"></p></div>
+<div class="timer-display" hidden><span data-countdown></span><button data-cancel>Lock now</button></div><div class="card-feedback" role="status"></div>
+</article>{% endfor %}</div><div class="empty-state" hidden>No matching doors. <button data-clear>Clear filters</button></div></section></div>
   <!-- ════ MONITOR PANEL ════ -->
-  <div class="panel" id="panel-monitor">
+  <div class="panel" id="panel-monitor"><div class="freshness" role="status"></div>
     {% if mon_error %}
       <div class="error-box">Monitor service unavailable: {{ mon_error }}</div>
     {% elif monitors | length == 0 %}
@@ -506,22 +154,22 @@ PAGE_TEMPLATE = r"""
           &middot; {{ mon_offline_count }} offline
         </span>
         <div>
-          <a class="btn" href="http://{{ request.host.split(':')[0] }}:5002" target="_blank">Full Dashboard</a>
-          <button class="btn" onclick="location.href=location.pathname+'?t='+Date.now()+(location.hash||'')">Refresh</button>
+          <a class="btn" href="http://{{ request.host.split(':')[0] }}:5002" target="_blank" rel="noopener">Full dashboard ↗</a>
+          <button class="btn" data-refresh>Refresh</button>
         </div>
       </div>
       <div class="item-list">
       {% for dev in monitors %}
-        <div class="item-card {{ 'off' if not dev.online else 'on' }}">
+        <div class="item-card {{ 'disconnected' if not dev.online else 'on' }}">
           <div class="item-top">
           <div class="item-info">
             <div class="item-name">{{ dev.name }}</div>
-            <div class="item-meta">
+            <details class="device-details-toggle"><summary>Device details</summary><div class="item-meta">
               {{ dev.type }}
               {% if dev.ip %}&middot; {{ dev.ip }}{% endif %}
               {% if dev.firmware %}&middot; FW: {{ dev.firmware }}{% endif %}
               {% if dev.uptime %}&middot; Up: {{ dev.uptime }}{% endif %}
-            </div>
+            </div></details>
           </div>
           <div class="toggle-wrap">
             <span class="badge {{ 'connected' if dev.online else 'disconnected' }}">{{ 'ONLINE' if dev.online else 'OFFLINE' }}</span>
@@ -534,7 +182,7 @@ PAGE_TEMPLATE = r"""
   </div>
 
   <!-- ════ AUDIT PANEL ════ -->
-  <div class="panel" id="panel-audit">
+  <div class="panel" id="panel-audit"><div class="freshness" role="status"></div>
     {% if audit_error %}
       <div class="error-box">Audit service unavailable: {{ audit_error }}</div>
     {% else %}
@@ -544,232 +192,41 @@ PAGE_TEMPLATE = r"""
           &middot; {{ audit_total }} total (last 7 days)
         </span>
         <div>
-          <a class="btn" href="http://{{ request.host.split(':')[0] }}:5004" target="_blank">Full Audit Log</a>
-          <button class="btn" onclick="location.href=location.pathname+'?t='+Date.now()+(location.hash||'')">Refresh</button>
+          <a class="btn" href="http://{{ request.host.split(':')[0] }}:5004" target="_blank" rel="noopener">Full audit log ↗</a>
+          <button class="btn" data-refresh>Refresh</button>
         </div>
       </div>
       <div class="item-list">
       {% for e in audit_recent %}
-        <div class="item-card {{ 'off' if 'off' in e.action or 'unlock' in e.action else 'on' }}">
+        <div class="item-card {{ 'off' if 'off' in e.action else 'unlocked' if 'unlock' in e.action else 'on' }}">
           <div class="item-top">
           <div class="item-info">
             <div class="item-name">{{ e.icon }} {{ e.action_label }} — {{ e.target }}</div>
             <div class="item-meta">
               {{ e.timestamp }}
-              &middot; <span class="badge {{ 'disconnected' if 'off' in e.action or 'unlock' in e.action else 'connected' }}">{{ e.category | upper }}</span>
+              &middot; <span class="badge {{ 'privacy' if e.category == 'camera' else 'unlocked' }}">{{ e.category | upper }}</span>
               &middot; {{ e.client_host }}
               {% if e.duration_min %}&middot; {{ e.duration_min }} min{% endif %}
             </div>
           </div>
           </div>
           {% if e.reason %}
-          <div style="margin-top:.35rem;font-size:.78rem;color:var(--text);font-style:italic;padding:.25rem .5rem;background:rgba(59,130,246,.05);border-left:2px solid var(--accent);border-radius:0 4px 4px 0">{{ e.reason }}</div>
+          <div style="margin-top:.35rem;font-size:14px;color:var(--text);font-style:italic;padding:.25rem .5rem;background:rgba(59,130,246,.05);border-left:2px solid var(--accent);border-radius:0 4px 4px 0">{{ e.reason }}</div>
           {% endif %}
         </div>
       {% endfor %}
       {% if audit_recent | length == 0 %}
-        <div class="empty-state">No audit entries today.</div>
+        <div class="empty-state">No recent audit entries.</div>
       {% endif %}
       </div>
     {% endif %}
   </div>
 
-</div>
+</main>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status"></div>
 
-<script>
-/* ── Tabs ── */
-function switchTab(el) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-  const panel = el.dataset.panel;
-  document.getElementById('panel-' + panel).classList.add('active');
-  history.replaceState(null, '', '#' + panel);
-}
-// Restore tab from URL hash on load
-(function() {
-  const hash = location.hash.replace('#', '');
-  if (hash) {
-    const tab = document.querySelector('.tab[data-panel="' + hash + '"]');
-    if (tab) switchTab(tab);
-  }
-})();
-
-/* ── Toast ── */
-function toast(msg, type) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'toast show ' + (type || 'ok');
-  setTimeout(() => el.classList.remove('show'), 3000);
-}
-
-/* ── Camera controls ── */
-function toggleCamAdvanced(id){const c=document.getElementById('cam-adv-check-'+id).checked;document.getElementById('cam-adv-options-'+id).style.display=c?'flex':'none'}
-function camTimeChanged(sel,id){document.getElementById('cam-custom-time-'+id).style.display=sel.value==='custom'?'inline-block':'none'}
-
-async function toggleCamera(el) {
-  const id = el.dataset.id, name = el.dataset.name, turnOn = el.checked;
-  const label = document.getElementById('cam-label-' + id);
-  el.disabled = true; label.textContent = '...';
-
-  try {
-    const r = await fetch('/api/cameras/toggle', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ camera_id: id, enable: turnOn, reason: (document.getElementById('cam-reason-'+id)||{}).value||'' }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || 'API error');
-    const isOff = data.camera ? data.camera.isOff : !turnOn;
-    toast(name + ' \u2192 ' + (isOff ? 'OFF (privacy)' : 'ON'), 'ok');
-    setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 1200);
-  } catch (err) {
-    el.checked = !turnOn;
-    label.textContent = turnOn ? 'off' : 'on';
-    toast('Error: ' + err.message, 'err');
-    el.disabled = false;
-  }
-}
-
-const camCdi = {};
-function startCamCountdown(id, sec) {
-  const td = document.getElementById('cam-timer-' + id), cd = document.getElementById('cam-countdown-' + id);
-  if (!td || !cd) return;
-  td.classList.add('show');
-  if (camCdi[id]) clearInterval(camCdi[id]);
-  let rem = sec;
-  function u() {
-    if (rem <= 0) { clearInterval(camCdi[id]); td.classList.remove('show'); setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 1000); return; }
-    const h = Math.floor(rem/3600), m = Math.floor((rem%3600)/60), s = rem%60;
-    cd.textContent = h > 0 ? h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0') : m+':'+String(s).padStart(2,'0');
-    rem--;
-  }
-  u(); camCdi[id] = setInterval(u, 1000);
-}
-
-async function timedOffCam(id, name) {
-  const sel = document.getElementById('cam-time-' + id);
-  let min = parseInt(sel.value);
-  if (sel.value === 'custom') { min = parseInt(document.getElementById('cam-custom-time-' + id).value); if (!min || min < 1) { toast('Enter valid minutes', 'err'); return; } }
-  try {
-    const r = await fetch('/api/cameras/timed-off', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({camera_id: id, minutes: min, reason: (document.getElementById('cam-reason-'+id)||{}).value||''}) });
-    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
-    const card = document.getElementById('cam-card-' + id), label = document.getElementById('cam-label-' + id),
-          toggle = document.getElementById('cam-toggle-' + id), adv = document.getElementById('cam-adv-' + id);
-    card.className = 'item-card off'; label.textContent = 'off'; toggle.checked = false; if(adv) adv.classList.remove('show');
-    startCamCountdown(id, min * 60);
-    toast(name + ' \u2192 OFF for ' + min + ' min', 'ok');
-  } catch (e) { toast('Error: ' + e.message, 'err'); }
-}
-
-async function cancelCamTimer(id) {
-  try {
-    const r = await fetch('/api/cameras/cancel-timer', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({camera_id: id, reason: 'Timer cancelled'}) });
-    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
-    if (camCdi[id]) clearInterval(camCdi[id]); document.getElementById('cam-timer-' + id).classList.remove('show');
-    toast(d.name + ' \u2192 timer cancelled, ENABLED', 'ok'); setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 500);
-  } catch (e) { toast('Error: ' + e.message, 'err'); }
-}
-
-async function enableAllCameras() {
-  if (!confirm('Re-enable ALL cameras (and cancel all timers)?')) return;
-  try {
-    const r = await fetch('/api/cameras/enable-all', { method: 'POST' });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || 'API error');
-    toast('Enabled ' + (data.changed || 0) + ' camera(s)', 'ok');
-    setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 800);
-  } catch (err) { toast('Error: ' + err.message, 'err'); }
-}
-
-// Load active camera timers on page load
-(async function(){try{const r=await fetch('/api/cameras/timers');const d=await r.json();
-for(const[id,info]of Object.entries(d)){if(info.remaining_sec>0)startCamCountdown(id,info.remaining_sec)}}catch(e){}})();
-
-/* ── Door controls ── */
-function toggleDoorAdvanced(id){const c=document.getElementById('door-adv-check-'+id).checked;document.getElementById('door-adv-options-'+id).style.display=c?'flex':'none'}
-function doorTimeChanged(sel,id){document.getElementById('door-custom-time-'+id).style.display=sel.value==='custom'?'inline-block':'none'}
-
-async function toggleDoor(el) {
-  const id = el.dataset.id, name = el.dataset.name, shouldLock = el.checked;
-  const label = document.getElementById('door-label-' + id);
-  el.disabled = true; label.textContent = '...';
-
-  try {
-    const r = await fetch('/api/doors/toggle', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ door_id: id, lock: shouldLock, reason: (document.getElementById('door-reason-'+id)||{}).value||'' }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || 'API error');
-    const isUnlocked = !shouldLock;
-    toast(name + ' \u2192 ' + (isUnlocked ? 'UNLOCKED' : 'LOCKED'), 'ok');
-    setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 1200);
-  } catch (err) {
-    el.checked = !shouldLock;
-    label.textContent = shouldLock ? 'unlocked' : 'locked';
-    toast('Error: ' + err.message, 'err');
-    el.disabled = false;
-  }
-}
-
-const doorCdi = {};
-function startDoorCountdown(id, sec) {
-  const td = document.getElementById('door-timer-' + id), cd = document.getElementById('door-countdown-' + id);
-  td.classList.add('show');
-  if (doorCdi[id]) clearInterval(doorCdi[id]);
-  let rem = sec;
-  function u() {
-    if (rem <= 0) { clearInterval(doorCdi[id]); td.classList.remove('show'); setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 1000); return; }
-    const h = Math.floor(rem/3600), m = Math.floor((rem%3600)/60), s = rem%60;
-    cd.textContent = h > 0 ? h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0') : m+':'+String(s).padStart(2,'0');
-    rem--;
-  }
-  u(); doorCdi[id] = setInterval(u, 1000);
-}
-
-async function timedUnlockDoor(id, name) {
-  const sel = document.getElementById('door-time-' + id);
-  let min = parseInt(sel.value);
-  if (sel.value === 'custom') { min = parseInt(document.getElementById('door-custom-time-' + id).value); if (!min || min < 1) { toast('Enter valid minutes', 'err'); return; } }
-  try {
-    const r = await fetch('/api/doors/timed-unlock', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({door_id: id, minutes: min, reason: (document.getElementById('door-reason-'+id)||{}).value||''}) });
-    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
-    const card = document.getElementById('door-card-' + id), label = document.getElementById('door-label-' + id),
-          badge = document.getElementById('door-badge-' + id), toggle = document.getElementById('door-toggle-' + id), adv = document.getElementById('door-adv-' + id);
-    card.className = 'item-card unlocked'; label.textContent = 'unlocked'; badge.textContent = 'UNLOCKED'; badge.className = 'badge unlocked'; toggle.checked = false; adv.classList.remove('show');
-    startDoorCountdown(id, min * 60);
-    toast(name + ' \u2192 UNLOCKED for ' + min + ' min', 'ok');
-  } catch (e) { toast('Error: ' + e.message, 'err'); }
-}
-
-async function cancelDoorTimer(id) {
-  try {
-    const r = await fetch('/api/doors/cancel-timer', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({door_id: id, reason: 'Timer cancelled'}) });
-    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'API error');
-    if (doorCdi[id]) clearInterval(doorCdi[id]); document.getElementById('door-timer-' + id).classList.remove('show');
-    toast(d.name + ' \u2192 timer cancelled, LOCKED', 'ok'); setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 500);
-  } catch (e) { toast('Error: ' + e.message, 'err'); }
-}
-
-async function lockAllDoors() {
-  if (!confirm('Lock ALL doors (and cancel all timers)?')) return;
-  try {
-    const r = await fetch('/api/doors/lock-all', { method: 'POST' });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || 'API error');
-    toast('Locked ' + (data.changed || 0) + ' door(s)', 'ok');
-    setTimeout(() => location.href=location.pathname+'?t='+Date.now()+(location.hash||''), 800);
-  } catch (err) { toast('Error: ' + err.message, 'err'); }
-}
-
-// Load active timers on page load
-(async function(){try{const r=await fetch('/api/doors/timers');const d=await r.json();
-for(const[id,info]of Object.entries(d)){if(info.remaining_sec>0)startDoorCountdown(id,info.remaining_sec)}}catch(e){}})();
-</script>
+<script src="/static/controls.js"></script>
 </body>
 </html>
 """
@@ -785,23 +242,6 @@ def index():
     doors = []
     door_error = None
 
-    # Fetch cameras from backend
-    try:
-        r = requests.get(f"{config.CAMERA_BACKEND}/", timeout=BACKEND_TIMEOUT)
-        # We need the API data, not the HTML. Hit the backend's list endpoint
-        # by scraping the same data the backend uses. We'll add a lightweight
-        # JSON endpoint to proxy through instead.
-    except Exception:
-        pass
-
-    # Actually, let's just call the backends' pages and parse —
-    # better to add a /api/list endpoint. For now, we proxy the
-    # existing API structure.
-
-    # Camera data: the camera backend renders HTML at / but we need JSON.
-    # We'll call its internal API indirectly by hitting the toggle endpoint
-    # with a GET-style list. Since the camera app doesn't have a list API,
-    # we add one via proxy.
     cam_data = _fetch_camera_list()
     if cam_data is None:
         cam_error = "Cannot reach camera service on port 5000"

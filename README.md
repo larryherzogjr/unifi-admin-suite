@@ -21,7 +21,10 @@ Valley City State University.
 - Requests and urllib3 for UniFi controller communication
 - systemd for long-running services and scheduled safety jobs
 
-There is no separate frontend toolchain or build step.
+There is no separate frontend toolchain or build step. Shared UI assets are maintained
+in `ui/` and copied into each service’s `static/` directory with
+`python ui/sync_assets.py`. Deploy `static/` alongside each service’s `app.py`.
+See [UI maintenance and verification](ui/README.md).
 
 ## Setup
 
